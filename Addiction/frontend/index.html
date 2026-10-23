@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindEvidence Lab</title>
+  <meta name="description" content="Educational research workspace for addiction-treatment studies. Synthetic data only.">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <div class="banner" role="note">Synthetic data · Educational use only · Not clinical advice</div>
+
+  <header class="app-header">
+    <div class="brand">
+      <h1>MindEvidence Lab</h1>
+      <p>RAG-based research assistant for psychology students</p>
+    </div>
+    <div class="signin">
+      <button type="button" id="signin-button" class="btn btn-google" aria-disabled="true" aria-describedby="signin-hint">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+        Sign in with Google
+      </button>
+      <span id="signin-hint" class="tooltip" role="tooltip">Not active yet: Google sign-in is added in Batch 04.</span>
+    </div>
+  </header>
+
+  <main id="main" class="workspace">
+    <section id="panel-patients" class="panel panel-patients" aria-labelledby="h-patients">
+      <h2 id="h-patients">Patient explorer</h2>
+      <p class="panel-hint">10 fictional adults. Use the arrow keys to move, Enter to select.</p>
+      <div id="patients-body"></div>
+    </section>
+
+    <section id="panel-detail" class="panel panel-detail" aria-labelledby="h-detail" aria-live="polite">
+      <h2 id="h-detail">Patient detail</h2>
+      <div id="detail-body"></div>
+    </section>
+
+    <section id="panel-chat" class="panel panel-chat" aria-labelledby="h-chat">
+      <div class="panel-head">
+        <h2 id="h-chat">Conversation</h2>
+        <span class="mode-pill" data-mode-pill></span>
+      </div>
+      <p id="chat-context" class="chat-context"></p>
+
+      <fieldset class="mode-group">
+        <legend>Answer source mode</legend>
+        <label class="mode-option"><input type="radio" name="source-mode" value="gk"><span>General Knowledge</span></label>
+        <label class="mode-option"><input type="radio" name="source-mode" value="rag" checked><span>RAG</span></label>
+        <label class="mode-option"><input type="radio" name="source-mode" value="both"><span>Both</span></label>
+      </fieldset>
+      <p id="mode-description" class="panel-hint"></p>
+
+      <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation messages" tabindex="0"></div>
+      <p id="chat-status" class="chat-status" role="status"></p>
+
+      <form id="chat-form" class="chat-form" autocomplete="off">
+        <label for="chat-input" class="visually-hidden">Your question</label>
+        <input id="chat-input" type="text" maxlength="500" placeholder="Select a patient to start" disabled>
+        <button id="chat-send" type="submit" class="btn btn-primary" disabled>Send</button>
+      </form>
+    </section>
+
+    <section id="panel-evidence" class="panel panel-evidence" aria-labelledby="h-evidence">
+      <div class="panel-head">
+        <h2 id="h-evidence">Evidence inspector</h2>
+        <span class="mode-pill" data-mode-pill></span>
+      </div>
+      <p class="panel-hint">All excerpts are labeled MOCK and are not from real documents.</p>
+      <div id="evidence-body"></div>
+    </section>
+
+    <section id="panel-timeline" class="panel panel-timeline" aria-labelledby="h-timeline">
+      <h2 id="h-timeline">Activity timeline</h2>
+      <div id="timeline-body"></div>
+    </section>
+
+    <aside class="panel panel-demo" aria-labelledby="h-demo">
+      <details>
+        <summary id="h-demo">Demo controls</summary>
+        <div class="demo-row">
+          <label for="demo-state">Show UI state</label>
+          <select id="demo-state">
+            <option value="ready">ready (normal)</option>
+            <option value="loading">loading</option>
+            <option value="empty">empty</option>
+            <option value="error">error</option>
+            <option value="no-evidence">no-evidence</option>
+          </select>
+          <button type="button" id="demo-reset" class="btn btn-small">Reset</button>
+        </div>
+        <p class="panel-hint">Also available as the URL parameter <code>?state=</code>.</p>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="app-footer">
+    <div class="legend" aria-label="Content type legend">
+      <span class="badge prov-fact">Patient fact</span>
+      <span class="badge prov-evidence">Research evidence</span>
+      <span class="badge prov-interpretation">Model interpretation</span>
+    </div>
+    <p>Teaching tool only. It does not diagnose, prescribe, or choose treatments.</p>
+  </footer>
+</body>
+</html>
