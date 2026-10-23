@@ -1,0 +1,8 @@
+.env
+*.sqlite
+*.db
+__pycache__/
+.venv/
+node_modules/
+.ipynb_checkpoints/
+data/papers/*.pdf
