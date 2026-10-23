@@ -1,0 +1,44 @@
+{
+  "patient": {
+    "patient_id": "P-010",
+    "age_at_intake": 57,
+    "gender": "woman",
+    "primary_category": "cannabis",
+    "intake_date": "2025-07-08",
+    "living_situation": "Lives alone; her grandchildren live nearby",
+    "employment_status": "Retired teacher",
+    "social_context": "Close to her grandchildren; limited contact with friends since her partner died",
+    "co_occurring_symptoms": "Chronic knee pain; sleep difficulty; grief",
+    "motivation_at_intake": "contemplating",
+    "background": "Fictional retired teacher, widowed, who lives alone close to her grandchildren.",
+    "history_summary": "Cannabis use that began after knee surgery in 2019 for pain and sleep and became daily in 2022.",
+    "treatment_summary": "Discussed use with her family doctor in 2024; has attended a short outpatient group since September 2025."
+  },
+  "history_events": [
+    {"date": "2019-09-01", "precision": "month", "type": "onset", "description": "After knee surgery, begins using cannabis for pain and sleep."},
+    {"date": "2021-03-01", "precision": "month", "type": "life_event", "description": "Her partner dies."},
+    {"date": "2022-06-01", "precision": "month", "type": "escalation", "description": "Use becomes daily, in the morning and evening."},
+    {"date": "2024-05-21", "precision": "day", "type": "treatment_contact", "description": "Raises her cannabis use with her family doctor."},
+    {"date": "2025-09-02", "precision": "day", "type": "treatment_contact", "description": "Joins a short outpatient group."}
+  ],
+  "use": [
+    {"category": "cannabis", "subject": "Cannabis", "pattern": "daily", "start_date": "2019-09-01", "end_date": null, "status": "reduced"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "health", "description": "Knee pain that flares in the evening."},
+    {"kind": "trigger", "context": "health", "description": "Difficulty sleeping."},
+    {"kind": "trigger", "context": "emotional", "description": "Anniversaries related to her partner's death."},
+    {"kind": "protective_factor", "context": "social", "description": "Regular time with her grandchildren, which she wants to protect."},
+    {"kind": "observed_behavior", "context": "social", "description": "Hides her use from her family."},
+    {"kind": "observed_behavior", "context": "health", "description": "Worries about driving after use and avoids it."}
+  ],
+  "interventions": [
+    {"type": "brief_advice", "setting": "Family doctor's office", "start_date": "2024-05-21", "end_date": "2024-05-21", "completion_status": "completed", "reported_outcome": "Discussed her use during one appointment; no further contact followed."},
+    {"type": "group_support", "setting": "Outpatient group", "start_date": "2025-09-02", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attends regularly."}
+  ],
+  "progress": [
+    {"observed_on": "2025-07-08", "use_status": "unchanged", "motivation": "contemplating", "note": "Uses in the morning and evening; thinking about cutting down."},
+    {"observed_on": "2026-01-14", "use_status": "reduced", "motivation": "preparing", "note": "Reports using mainly in the evening."},
+    {"observed_on": "2026-09-09", "use_status": "reduced", "motivation": "engaged", "note": "Uses on fewer days than six months earlier."}
+  ]
+}

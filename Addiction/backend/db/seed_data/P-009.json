@@ -1,0 +1,46 @@
+{
+  "patient": {
+    "patient_id": "P-009",
+    "age_at_intake": 22,
+    "gender": "non_binary",
+    "primary_category": "behavioral",
+    "intake_date": "2025-10-14",
+    "living_situation": "Lives with parents",
+    "employment_status": "University student; on academic warning",
+    "social_context": "Most friendships are with online team members; parents are concerned and involved",
+    "co_occurring_symptoms": "Low mood; sleep difficulty",
+    "motivation_at_intake": "ambivalent",
+    "background": "Fictional university student who lives with their parents and is on an academic warning.",
+    "history_summary": "Online multiplayer gaming that rose after joining a competitive team in 2022 and reached overnight sessions by 2024.",
+    "treatment_summary": "Three school counselor meetings in autumn 2025 (not completed); family sessions since January 2026."
+  },
+  "history_events": [
+    {"date": "2022-03-01", "precision": "month", "type": "onset", "description": "Gaming hours rise sharply after joining an online team."},
+    {"date": "2024-01-01", "precision": "month", "type": "escalation", "description": "Plays through the night on most days."},
+    {"date": "2025-05-01", "precision": "month", "type": "legal_or_work_event", "description": "Fails two courses and is placed on an academic warning."},
+    {"date": "2025-09-22", "precision": "day", "type": "treatment_contact", "description": "Starts meetings with a school counselor."},
+    {"date": "2026-01-13", "precision": "day", "type": "treatment_contact", "description": "Begins family sessions with their parents."},
+    {"date": "2026-08-01", "precision": "month", "type": "life_event", "description": "Re-enrolls in one course for the new term."}
+  ],
+  "use": [
+    {"category": "behavioral", "subject": "Online multiplayer gaming", "pattern": "daily", "start_date": "2022-03-01", "end_date": null, "status": "reduced"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "social", "description": "Scheduled matches with their online team."},
+    {"kind": "trigger", "context": "work", "description": "Academic pressure and fear of failing."},
+    {"kind": "trigger", "context": "emotional", "description": "Loneliness on days without classes."},
+    {"kind": "risk_factor", "context": "unknown", "description": "Family history of addiction: unknown."},
+    {"kind": "protective_factor", "context": "social", "description": "Parents who attend family sessions."},
+    {"kind": "observed_behavior", "context": "health", "description": "Skips meals during long sessions."},
+    {"kind": "observed_behavior", "context": "emotional", "description": "Becomes irritable when interrupted."}
+  ],
+  "interventions": [
+    {"type": "outpatient_counseling", "setting": "University counseling service", "start_date": "2025-09-22", "end_date": "2025-11-06", "completion_status": "dropped_out", "reported_outcome": "Attended 3 of 6 planned meetings."},
+    {"type": "family_sessions", "setting": "Family counseling service", "start_date": "2026-01-13", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attends with their parents every second week."}
+  ],
+  "progress": [
+    {"observed_on": "2025-10-14", "use_status": "unchanged", "motivation": "ambivalent", "note": "Plays most of the night; unsure whether to change."},
+    {"observed_on": "2026-04-07", "use_status": "reduced", "motivation": "contemplating", "note": "Attending family sessions; plays fewer late-night sessions."},
+    {"observed_on": "2026-09-29", "use_status": "reduced", "motivation": "preparing", "note": "Returned to one course; sleeps at night on most days."}
+  ]
+}

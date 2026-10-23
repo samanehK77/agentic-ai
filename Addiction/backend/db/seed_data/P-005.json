@@ -1,0 +1,42 @@
+{
+  "patient": {
+    "patient_id": "P-005",
+    "age_at_intake": 24,
+    "gender": "man",
+    "primary_category": "opioids",
+    "intake_date": "2025-09-15",
+    "living_situation": "Shares a house with roommates",
+    "employment_status": "Part-time barista and part-time student",
+    "social_context": "Several friends use at parties; a roommate has voiced concern",
+    "co_occurring_symptoms": "Anxiety symptoms around exams",
+    "motivation_at_intake": "ambivalent",
+    "background": "Fictional student and part-time barista who shares a house with roommates.",
+    "history_summary": "Non-prescribed pill use that started at parties in 2023 and became weekly in late 2024.",
+    "treatment_summary": "No treatment so far; received referral information at an emergency visit in 2025 and has not yet followed it up."
+  },
+  "history_events": [
+    {"date": "2023-06-01", "precision": "month", "type": "onset", "description": "First use of non-prescribed pills at a party."},
+    {"date": "2024-12-01", "precision": "month", "type": "escalation", "description": "Use moves from occasional parties to most weekends."},
+    {"date": "2025-08-21", "precision": "day", "type": "treatment_contact", "description": "Visits an emergency department after a frightening episode and receives written referral information."},
+    {"date": "2026-08-30", "precision": "day", "type": "help_seeking", "description": "Asks a roommate to help him look for an appointment."}
+  ],
+  "use": [
+    {"category": "opioids", "subject": "Non-prescribed opioid pills", "pattern": "several_per_week", "start_date": "2023-06-01", "end_date": null, "status": "active"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "social", "description": "Parties and gatherings where friends use."},
+    {"kind": "trigger", "context": "emotional", "description": "Anxiety before exams."},
+    {"kind": "risk_factor", "context": "financial", "description": "Money worries; has borrowed from friends."},
+    {"kind": "risk_factor", "context": "unknown", "description": "Family history of substance use: unknown."},
+    {"kind": "protective_factor", "context": "social", "description": "A roommate who is concerned and willing to help."},
+    {"kind": "observed_behavior", "context": "social", "description": "Hides use from his family."}
+  ],
+  "interventions": [
+    {"type": "other", "setting": "Hospital emergency department", "start_date": "2025-08-21", "end_date": "2025-08-21", "completion_status": "completed", "reported_outcome": "Received written referral information; has not yet contacted the service."}
+  ],
+  "progress": [
+    {"observed_on": "2025-09-15", "use_status": "unchanged", "motivation": "ambivalent", "note": "Open to talking; has not contacted the referral service."},
+    {"observed_on": "2026-03-10", "use_status": "increased", "motivation": "ambivalent", "note": "Reports using on more days than six months earlier."},
+    {"observed_on": "2026-09-02", "use_status": "unchanged", "motivation": "contemplating", "note": "Has asked a roommate to help find an appointment; none booked yet."}
+  ]
+}

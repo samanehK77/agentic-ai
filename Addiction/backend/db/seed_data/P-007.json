@@ -1,0 +1,42 @@
+{
+  "patient": {
+    "patient_id": "P-007",
+    "age_at_intake": 31,
+    "gender": "woman",
+    "primary_category": "stimulants",
+    "intake_date": "2025-08-05",
+    "living_situation": "Lives with her partner",
+    "employment_status": "Employed full time as a bartender and event organizer; works nights",
+    "social_context": "Most friends and co-workers are in nightlife; partner is supportive but concerned",
+    "co_occurring_symptoms": "Low mood after use",
+    "motivation_at_intake": "ambivalent",
+    "background": "Fictional bartender and event organizer who works nights and lives with her partner.",
+    "history_summary": "Cocaine use that began at work events in 2021 and moved from monthly to most weekends by 2023.",
+    "treatment_summary": "One assessment visit at a community clinic in 2025. No other treatment contact."
+  },
+  "history_events": [
+    {"date": "2021-07-01", "precision": "month", "type": "onset", "description": "First use at a work event."},
+    {"date": "2023-03-01", "precision": "month", "type": "escalation", "description": "Use moves from about once a month to most weekends."},
+    {"date": "2024-12-01", "precision": "month", "type": "life_event", "description": "Her partner tells her they are worried about her use."},
+    {"date": "2025-07-14", "precision": "day", "type": "treatment_contact", "description": "Attends an assessment visit at a community clinic."},
+    {"date": "2026-02-01", "precision": "month", "type": "life_event", "description": "Starts looking at jobs outside nightlife."}
+  ],
+  "use": [
+    {"category": "stimulants", "subject": "Cocaine", "pattern": "weekends", "start_date": "2021-07-01", "end_date": null, "status": "active"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "work", "description": "Late nights in the venue where she works."},
+    {"kind": "trigger", "context": "social", "description": "Co-workers who use after shifts."},
+    {"kind": "risk_factor", "context": "financial", "description": "Spends a large part of her tips on nights out."},
+    {"kind": "risk_factor", "context": "unknown", "description": "Family history of substance use: unknown."},
+    {"kind": "protective_factor", "context": "social", "description": "Partner who raises concerns openly and offers support."},
+    {"kind": "observed_behavior", "context": "emotional", "description": "Feels low for a day or two after using."}
+  ],
+  "interventions": [
+    {"type": "other", "setting": "Community clinic", "start_date": "2025-07-14", "end_date": "2025-07-14", "completion_status": "completed", "reported_outcome": "Attended one assessment visit and received information; no follow-up booked."}
+  ],
+  "progress": [
+    {"observed_on": "2025-08-05", "use_status": "unchanged", "motivation": "ambivalent", "note": "Uses most weekends; unsure whether she wants to change."},
+    {"observed_on": "2026-05-12", "use_status": "unchanged", "motivation": "contemplating", "note": "Has talked about changing jobs; use continues at weekends."}
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "patient": {
+    "patient_id": "P-004",
+    "age_at_intake": 51,
+    "gender": "woman",
+    "primary_category": "opioids",
+    "intake_date": "2024-11-05",
+    "living_situation": "Lives alone; her sister lives in the same town",
+    "employment_status": "Not working; receives disability support",
+    "social_context": "Sees her sister weekly; few other regular contacts",
+    "co_occurring_symptoms": "Chronic back pain; sleep difficulty",
+    "motivation_at_intake": "engaged",
+    "background": "Fictional former bus driver, divorced, lives alone and manages ongoing back pain.",
+    "history_summary": "Prescription opioid use that began after a back injury in 2015 and rose beyond the prescribed amount from 2018.",
+    "treatment_summary": "In a supervised medication program since April 2022; completed a pain management program in 2023."
+  },
+  "history_events": [
+    {"date": "2015-11-01", "precision": "month", "type": "onset", "description": "Back injury at work; first prescription for pain, which starts her use of opioid medication."},
+    {"date": "2018-03-01", "precision": "month", "type": "escalation", "description": "Takes more than the prescribed amount because the pain is not controlled."},
+    {"date": "2020-09-01", "precision": "month", "type": "help_seeking", "description": "Tells her primary care doctor she is finding it hard to cut down."},
+    {"date": "2021-06-01", "precision": "month", "type": "life_event", "description": "Divorce is finalized and she moves into a smaller flat."},
+    {"date": "2022-04-11", "precision": "day", "type": "treatment_contact", "description": "Enters a supervised medication program."},
+    {"date": "2023-05-15", "precision": "day", "type": "treatment_contact", "description": "Starts a pain management program."}
+  ],
+  "use": [
+    {"category": "opioids", "subject": "Prescription opioid pain medication", "pattern": "daily", "start_date": "2015-11-01", "end_date": null, "status": "supervised"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "health", "description": "Pain flare-ups, especially in cold weather."},
+    {"kind": "trigger", "context": "health", "description": "Poor sleep after a painful day."},
+    {"kind": "trigger", "context": "emotional", "description": "Feeling isolated at weekends."},
+    {"kind": "risk_factor", "context": "health", "description": "Long-standing chronic pain."},
+    {"kind": "protective_factor", "context": "social", "description": "Weekly contact with her sister."},
+    {"kind": "observed_behavior", "context": "health", "description": "Attends clinic appointments reliably and keeps a daily routine."}
+  ],
+  "interventions": [
+    {"type": "medication_supported_program", "setting": "Supervised outpatient clinic", "start_date": "2022-04-11", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attendance has been steady; no missed appointments in the 12 months before the last check-in."},
+    {"type": "pain_management_program", "setting": "Hospital outpatient program", "start_date": "2023-05-15", "end_date": "2023-08-28", "completion_status": "completed", "reported_outcome": "Completed the program."}
+  ],
+  "progress": [
+    {"observed_on": "2024-11-05", "use_status": "reduced", "motivation": "engaged", "note": "Attending the clinic reliably; worries about her pain returning."},
+    {"observed_on": "2025-11-10", "use_status": "reduced", "motivation": "engaged", "note": "No missed appointments in the past 12 months."}
+  ]
+}

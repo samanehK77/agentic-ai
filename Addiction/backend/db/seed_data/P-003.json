@@ -1,0 +1,45 @@
+{
+  "patient": {
+    "patient_id": "P-003",
+    "age_at_intake": 34,
+    "gender": "man",
+    "primary_category": "cannabis",
+    "intake_date": "2025-02-17",
+    "living_situation": "Lives alone",
+    "employment_status": "Freelance video editor with irregular hours",
+    "social_context": "Has one close friend who does not use cannabis; otherwise limited social contact",
+    "co_occurring_symptoms": "Difficulty sleeping; low motivation",
+    "motivation_at_intake": "contemplating",
+    "background": "Fictional freelance video editor who lives alone and works irregular hours.",
+    "history_summary": "Daily cannabis use since 2014, rising to several times a day in 2018; two short attempts to stop in 2020 and 2022.",
+    "treatment_summary": "One counseling intake in 2024 without follow-up; counseling sessions every second week since December 2025."
+  },
+  "history_events": [
+    {"date": "2014-03-01", "precision": "month", "type": "onset", "description": "Begins using cannabis daily."},
+    {"date": "2018-09-01", "precision": "month", "type": "escalation", "description": "Use rises to several times a day after moving to a new city."},
+    {"date": "2020-05-01", "precision": "month", "type": "reduction_attempt", "description": "Stops for nine days, then resumes."},
+    {"date": "2022-11-01", "precision": "month", "type": "reduction_attempt", "description": "Second attempt to stop lasts about two weeks."},
+    {"date": "2024-10-08", "precision": "day", "type": "treatment_contact", "description": "Attends a counseling intake appointment."},
+    {"date": "2025-12-02", "precision": "day", "type": "treatment_contact", "description": "Starts regular counseling sessions."}
+  ],
+  "use": [
+    {"category": "cannabis", "subject": "Cannabis", "pattern": "daily", "start_date": "2014-03-01", "end_date": null, "status": "reduced"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "health", "description": "Difficulty falling asleep at night."},
+    {"kind": "trigger", "context": "environmental", "description": "Boredom on evenings spent alone."},
+    {"kind": "trigger", "context": "work", "description": "Irregular deadlines that break up his routine."},
+    {"kind": "risk_factor", "context": "financial", "description": "A large share of his income goes toward cannabis."},
+    {"kind": "protective_factor", "context": "social", "description": "A close friend who does not use and checks in weekly."},
+    {"kind": "observed_behavior", "context": "social", "description": "Has less contact with some friends than a few years ago."}
+  ],
+  "interventions": [
+    {"type": "outpatient_counseling", "setting": "Community counseling service", "start_date": "2024-10-08", "end_date": "2024-10-08", "completion_status": "dropped_out", "reported_outcome": "Attended the intake appointment and did not return."},
+    {"type": "outpatient_counseling", "setting": "Community counseling service", "start_date": "2025-12-02", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attends sessions every second week."}
+  ],
+  "progress": [
+    {"observed_on": "2025-02-17", "use_status": "unchanged", "motivation": "contemplating", "note": "Uses several times a day; says he is thinking about stopping."},
+    {"observed_on": "2025-11-18", "use_status": "unchanged", "motivation": "preparing", "note": "Has booked a second counseling appointment."},
+    {"observed_on": "2026-04-14", "use_status": "reduced", "motivation": "engaged", "note": "Reports using on fewer days and sleeping better on some nights."}
+  ]
+}

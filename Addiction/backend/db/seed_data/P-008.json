@@ -1,0 +1,47 @@
+{
+  "patient": {
+    "patient_id": "P-008",
+    "age_at_intake": 42,
+    "gender": "man",
+    "primary_category": "behavioral",
+    "intake_date": "2025-05-19",
+    "living_situation": "Lives with his spouse and one child",
+    "employment_status": "Employed full time as an accountant",
+    "social_context": "Spouse learned about the debts in 2023 and remains involved; few friends outside work",
+    "co_occurring_symptoms": "Anxiety symptoms; sleep difficulty",
+    "motivation_at_intake": "preparing",
+    "background": "Fictional accountant, married with one child, carrying credit-card debt.",
+    "history_summary": "Online sports betting since 2020 that grew to most days by 2022, with significant debts discovered by his spouse in 2023.",
+    "treatment_summary": "Self-excluded from betting platforms in 2024 (later opened another account); gambling-focused counseling since June 2025."
+  },
+  "history_events": [
+    {"date": "2020-09-01", "precision": "month", "type": "onset", "description": "A large early win is followed by more frequent betting."},
+    {"date": "2022-11-01", "precision": "month", "type": "escalation", "description": "Betting reaches most days; tries to win back losses."},
+    {"date": "2023-09-01", "precision": "month", "type": "life_event", "description": "His spouse discovers the debts."},
+    {"date": "2024-03-04", "precision": "day", "type": "treatment_contact", "description": "Self-excludes from two betting platforms."},
+    {"date": "2024-06-01", "precision": "month", "type": "relapse", "description": "Opens an account on a third platform and resumes betting."},
+    {"date": "2025-06-23", "precision": "day", "type": "treatment_contact", "description": "Starts weekly gambling-focused counseling."},
+    {"date": "2026-07-30", "precision": "day", "type": "recovery_milestone", "description": "Places his last bet before his current period without betting."}
+  ],
+  "use": [
+    {"category": "behavioral", "subject": "Online sports betting", "pattern": "several_per_week", "start_date": "2020-09-01", "end_date": "2026-07-30", "status": "abstinent"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "environmental", "description": "Live sports events."},
+    {"kind": "trigger", "context": "financial", "description": "Payday and bill due dates."},
+    {"kind": "trigger", "context": "work", "description": "Stress around tax-season deadlines."},
+    {"kind": "risk_factor", "context": "financial", "description": "Existing debts that create pressure to win money back."},
+    {"kind": "protective_factor", "context": "social", "description": "Spouse supports him and now manages shared accounts with him."},
+    {"kind": "observed_behavior", "context": "emotional", "description": "Checked betting apps many times a day during heavy periods."},
+    {"kind": "observed_behavior", "context": "financial", "description": "Hid account statements from his spouse until 2023."}
+  ],
+  "interventions": [
+    {"type": "self_exclusion_or_blocking", "setting": "Online betting platforms", "start_date": "2024-03-04", "end_date": "2024-03-04", "completion_status": "completed", "reported_outcome": "Excluded from two platforms; opened an account on a third in June 2024."},
+    {"type": "outpatient_counseling", "setting": "Gambling counseling service", "start_date": "2025-06-23", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attends weekly sessions."}
+  ],
+  "progress": [
+    {"observed_on": "2025-05-19", "use_status": "unchanged", "motivation": "preparing", "note": "Betting on most days; intake interview completed."},
+    {"observed_on": "2026-01-27", "use_status": "reduced", "motivation": "engaged", "note": "Betting on fewer days; attends counseling weekly."},
+    {"observed_on": "2026-08-20", "use_status": "abstinent", "motivation": "engaged", "note": "Reports three weeks without betting."}
+  ]
+}

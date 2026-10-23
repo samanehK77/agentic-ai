@@ -1,0 +1,49 @@
+{
+  "patient": {
+    "patient_id": "P-006",
+    "age_at_intake": 38,
+    "gender": "man",
+    "primary_category": "stimulants",
+    "intake_date": "2025-04-22",
+    "living_situation": "Rents a room; separated from his partner",
+    "employment_status": "Unemployed since early 2024; previously a construction laborer",
+    "social_context": "Sees his young daughter at weekends; his sister lives nearby; some former friends still use",
+    "co_occurring_symptoms": "Sleep difficulty; irritability; low mood",
+    "motivation_at_intake": "preparing",
+    "background": "Fictional former construction laborer, separated, who sees his young daughter at weekends.",
+    "history_summary": "Stimulant (methamphetamine) use in multi-day episodes since 2019, with a return to use in 2022 after a period without use.",
+    "treatment_summary": "Residential program in 2022 (completed); outpatient counseling in 2024 (left early); counseling again every two weeks since late 2025."
+  },
+  "history_events": [
+    {"date": "2019-05-01", "precision": "month", "type": "onset", "description": "Starts using stimulants after a co-worker offers them."},
+    {"date": "2021-10-01", "precision": "month", "type": "escalation", "description": "Multi-day episodes with very little sleep become common; his sister notices weight loss."},
+    {"date": "2022-02-07", "precision": "day", "type": "treatment_contact", "description": "Enters a residential program."},
+    {"date": "2022-05-06", "precision": "day", "type": "recovery_milestone", "description": "Completes the residential program and begins a period without use."},
+    {"date": "2022-09-01", "precision": "month", "type": "relapse", "description": "Returns to use after a dispute about time with his daughter."},
+    {"date": "2024-02-01", "precision": "month", "type": "legal_or_work_event", "description": "Loses his construction job."},
+    {"date": "2024-06-03", "precision": "day", "type": "treatment_contact", "description": "Starts outpatient counseling."},
+    {"date": "2025-11-04", "precision": "day", "type": "treatment_contact", "description": "Returns to counseling with a new counselor."}
+  ],
+  "use": [
+    {"category": "stimulants", "subject": "Methamphetamine", "pattern": "binge_episodic", "start_date": "2019-05-01", "end_date": null, "status": "reduced"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "work", "description": "Long unstructured days without a job."},
+    {"kind": "trigger", "context": "social", "description": "Contact with former friends who still use."},
+    {"kind": "trigger", "context": "emotional", "description": "Conflict about time with his daughter."},
+    {"kind": "trigger", "context": "health", "description": "Exhaustion after poor sleep."},
+    {"kind": "protective_factor", "context": "social", "description": "Regular weekend time with his daughter; support from his sister."},
+    {"kind": "observed_behavior", "context": "health", "description": "Goes for days with very little sleep during heavy periods."},
+    {"kind": "observed_behavior", "context": "emotional", "description": "Becomes irritable when very tired."}
+  ],
+  "interventions": [
+    {"type": "residential_program", "setting": "Residential treatment center", "start_date": "2022-02-07", "end_date": "2022-05-06", "completion_status": "completed", "reported_outcome": "Completed the program; returned to use about four months later."},
+    {"type": "outpatient_counseling", "setting": "Community counseling service", "start_date": "2024-06-03", "end_date": "2024-07-15", "completion_status": "dropped_out", "reported_outcome": "Attended 6 sessions and then stopped."},
+    {"type": "outpatient_counseling", "setting": "Community counseling service", "start_date": "2025-11-04", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Meets his counselor every two weeks."}
+  ],
+  "progress": [
+    {"observed_on": "2025-04-22", "use_status": "unchanged", "motivation": "preparing", "note": "Using in multi-day episodes; intake interview completed."},
+    {"observed_on": "2025-12-09", "use_status": "reduced", "motivation": "engaged", "note": "Attending counseling every two weeks; reports fewer episodes."},
+    {"observed_on": "2026-06-18", "use_status": "reduced", "motivation": "engaged", "note": "Reports longer gaps between episodes."}
+  ]
+}

@@ -7,3 +7,4 @@ node_modules/
 .ipynb_checkpoints/
 data/papers/*.pdf
 pgdata/
+.pytest_cache/

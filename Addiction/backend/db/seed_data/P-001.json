@@ -1,0 +1,50 @@
+{
+  "patient": {
+    "patient_id": "P-001",
+    "age_at_intake": 46,
+    "gender": "man",
+    "primary_category": "alcohol",
+    "intake_date": "2025-03-10",
+    "living_situation": "Lives with spouse; two adult children live nearby",
+    "employment_status": "Employed full time as a warehouse supervisor",
+    "social_context": "Colleagues often drink together after shifts; spouse is supportive",
+    "co_occurring_symptoms": "Sleep difficulty; low mood in the evenings",
+    "motivation_at_intake": "preparing",
+    "background": "Fictional warehouse supervisor, married, two adult children, lives in a mid-sized town.",
+    "history_summary": "Daily drinking since 2012 after a promotion; two earlier periods of cutting down, followed by a return to daily drinking.",
+    "treatment_summary": "Outpatient counseling (2022, left early), one inpatient stay (2023), mutual-help group attendance since 2023."
+  },
+  "history_events": [
+    {"date": "2012-09-01", "precision": "month", "type": "onset", "description": "Drinking becomes a daily habit after a promotion to supervisor."},
+    {"date": "2019-04-01", "precision": "month", "type": "help_seeking", "description": "Mentions his drinking to a family doctor for the first time."},
+    {"date": "2021-11-01", "precision": "month", "type": "reduction_attempt", "description": "Tries to cut down alone; returns to daily drinking within weeks."},
+    {"date": "2022-03-14", "precision": "day", "type": "treatment_contact", "description": "Starts outpatient counseling at a community clinic."},
+    {"date": "2023-05-12", "precision": "day", "type": "legal_or_work_event", "description": "A workplace incident leads to a formal meeting with his employer."},
+    {"date": "2023-06-05", "precision": "day", "type": "treatment_contact", "description": "Begins an inpatient stay."},
+    {"date": "2023-07-10", "precision": "day", "type": "treatment_contact", "description": "Joins a mutual-help group after leaving the inpatient stay."},
+    {"date": "2024-02-01", "precision": "month", "type": "relapse", "description": "Returns to daily drinking; group attendance becomes irregular."},
+    {"date": "2026-08-05", "precision": "day", "type": "recovery_milestone", "description": "Begins his current period without drinking."}
+  ],
+  "use": [
+    {"category": "alcohol", "subject": "Alcohol", "pattern": "daily", "start_date": "2012-09-01", "end_date": "2026-08-04", "status": "abstinent"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "work", "description": "Late shifts that end after most social plans."},
+    {"kind": "trigger", "context": "social", "description": "Drinks with colleagues after work."},
+    {"kind": "trigger", "context": "emotional", "description": "Evenings alone when his spouse works nights."},
+    {"kind": "risk_factor", "context": "unknown", "description": "Family history of heavy drinking: unknown."},
+    {"kind": "protective_factor", "context": "social", "description": "Supportive spouse who attends some group meetings with him."},
+    {"kind": "observed_behavior", "context": "emotional", "description": "Hid empty bottles at home during the heaviest period."},
+    {"kind": "observed_behavior", "context": "work", "description": "Missed several shifts in the year before intake."}
+  ],
+  "interventions": [
+    {"type": "outpatient_counseling", "setting": "Community clinic", "start_date": "2022-03-14", "end_date": "2022-06-20", "completion_status": "dropped_out", "reported_outcome": "Attended 8 of 12 planned sessions."},
+    {"type": "inpatient_stay", "setting": "Inpatient unit", "start_date": "2023-06-05", "end_date": "2023-07-03", "completion_status": "completed", "reported_outcome": "Completed the stay and returned to work after two weeks."},
+    {"type": "group_support", "setting": "Community mutual-help group", "start_date": "2023-07-10", "end_date": null, "completion_status": "ongoing", "reported_outcome": "Attends irregularly; attendance has been regular since August 2026."}
+  ],
+  "progress": [
+    {"observed_on": "2025-03-10", "use_status": "unchanged", "motivation": "preparing", "note": "Daily drinking continues; intake interview completed."},
+    {"observed_on": "2026-02-12", "use_status": "reduced", "motivation": "preparing", "note": "Reports drinking on fewer evenings than at intake."},
+    {"observed_on": "2026-09-15", "use_status": "abstinent", "motivation": "engaged", "note": "Reports 41 days without drinking at this check-in."}
+  ]
+}

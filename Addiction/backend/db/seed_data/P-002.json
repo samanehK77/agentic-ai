@@ -1,0 +1,44 @@
+{
+  "patient": {
+    "patient_id": "P-002",
+    "age_at_intake": 29,
+    "gender": "woman",
+    "primary_category": "alcohol",
+    "intake_date": "2025-06-02",
+    "living_situation": "Shares a flat with two housemates",
+    "employment_status": "Self-employed graphic designer with irregular income",
+    "social_context": "Much of her social life centers on bars and events; close to her sister",
+    "co_occurring_symptoms": "Anxiety symptoms before social gatherings",
+    "motivation_at_intake": "ambivalent",
+    "background": "Fictional graphic designer who shares a flat and has an active social life.",
+    "history_summary": "Heavy drinking at weekends since university, with occasional memory gaps and one driving incident in 2024.",
+    "treatment_summary": "One brief advice session at a campus clinic (2018). No specialist treatment since."
+  },
+  "history_events": [
+    {"date": "2015-09-01", "precision": "month", "type": "onset", "description": "Starts regular weekend drinking in her first term at university."},
+    {"date": "2018-11-12", "precision": "day", "type": "treatment_contact", "description": "Attends a single brief advice session at the campus clinic."},
+    {"date": "2019-06-01", "precision": "month", "type": "life_event", "description": "Graduates and starts freelance work; weekend drinking continues."},
+    {"date": "2022-05-01", "precision": "month", "type": "health_event", "description": "Has a first memory gap after a night of heavy drinking."},
+    {"date": "2024-08-17", "precision": "day", "type": "legal_or_work_event", "description": "Receives an official warning after a driving incident."}
+  ],
+  "use": [
+    {"category": "alcohol", "subject": "Alcohol", "pattern": "binge_episodic", "start_date": "2015-09-01", "end_date": null, "status": "reduced"}
+  ],
+  "factors": [
+    {"kind": "trigger", "context": "social", "description": "Celebrations and nights out with friends."},
+    {"kind": "trigger", "context": "emotional", "description": "Anxiety before meeting new people."},
+    {"kind": "trigger", "context": "work", "description": "Pressure around client deadlines."},
+    {"kind": "risk_factor", "context": "unknown", "description": "Family history of alcohol problems: unknown."},
+    {"kind": "protective_factor", "context": "social", "description": "Her sister checks in regularly and does not drink heavily."},
+    {"kind": "observed_behavior", "context": "social", "description": "Drinks faster than friends on nights out."},
+    {"kind": "observed_behavior", "context": "work", "description": "Often loses the following Monday to recovering from weekend drinking."}
+  ],
+  "interventions": [
+    {"type": "brief_advice", "setting": "University campus clinic", "start_date": "2018-11-12", "end_date": "2018-11-12", "completion_status": "completed", "reported_outcome": "Drank less for about two months, then returned to her earlier pattern."}
+  ],
+  "progress": [
+    {"observed_on": "2025-06-02", "use_status": "unchanged", "motivation": "ambivalent", "note": "Unsure whether she wants to change; no goal set."},
+    {"observed_on": "2026-01-20", "use_status": "unchanged", "motivation": "ambivalent", "note": "Reports two weekends without drinking; says this was because of travel."},
+    {"observed_on": "2026-08-18", "use_status": "reduced", "motivation": "contemplating", "note": "Has set a personal goal to limit weekend drinking; has not contacted any service."}
+  ]
+}
