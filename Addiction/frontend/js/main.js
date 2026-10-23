@@ -143,8 +143,18 @@ function wireControls() {
   }
 }
 
+function showMockLabel() {
+  // Always visible when mock patients are shown, so demo data is never mistaken for database data.
+  const label = document.createElement("p");
+  label.className = "mock-source-label";
+  label.setAttribute("role", "status");
+  label.textContent = "DEMO DATA (mock): patients are not coming from the database.";
+  document.querySelector(".banner").after(label);
+}
+
 subscribe(render);
 wireControls();
+if (api.isMockSource()) showMockLabel();
 const requested = new URLSearchParams(window.location.search).get("state") || "ready";
 api.setDemoState(requested);
 setState({ demo: api.getDemoState() });

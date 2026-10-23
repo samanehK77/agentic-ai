@@ -87,6 +87,20 @@ code { background: #e9edf2; padding: 0 0.3em; border-radius: 4px; }
   border-bottom: 1px solid #e0c86a;
 }
 
+.mock-source-label {
+  position: sticky;
+  top: 2.2rem;
+  z-index: 49;
+  margin: 0;
+  padding: 0.35rem 1rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-bottom: 2px solid var(--error-fg);
+}
+
 .app-header {
   display: flex;
   flex-wrap: wrap;

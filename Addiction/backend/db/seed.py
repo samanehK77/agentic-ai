@@ -17,7 +17,7 @@ from sqlalchemy.engine import Engine
 
 from db.config import SEED_DIR, get_engine
 from db.models import (
-    Factor, HistoryEvent, Intervention, Patient, ProgressObservation, UseRecord,
+    Factor, HistoryEvent, Intervention, Paper, Patient, ProgressObservation, UseRecord,
 )
 
 CHILDREN = [
@@ -52,6 +52,13 @@ def load_cases(seed_dir: Path = SEED_DIR) -> list[dict]:
     return cases
 
 
+PAPER_FIELDS = ["title", "document_type", "publisher", "publication_year", "source_note"]
+
+
+def load_papers(seed_dir: Path = SEED_DIR) -> list[dict]:
+    return json.loads((seed_dir / "papers.json").read_text(encoding="utf-8"))
+
+
 def _value(column: str, raw):
     if column in DATE_COLUMNS and raw is not None:
         return date.fromisoformat(raw)
@@ -84,13 +91,19 @@ def seed(engine: Engine, seed_dir: Path = SEED_DIR) -> dict[str, int]:
                     conn.execute(child.on_conflict_do_update(index_elements=[id_col], set_=update_cols))
                 # Remove rows that were seeded earlier but are no longer in the file.
                 conn.execute(delete(model).where(model.patient_id == pid, getattr(model, id_col).not_in(keys)))
+        # Paper metadata (ingest_status is left alone so later batches can change it).
+        for paper in load_papers(seed_dir):
+            row = {"paper_id": paper["paper_id"], **{f: paper[f] for f in PAPER_FIELDS}}
+            stmt = insert(Paper).values(**row)
+            conn.execute(stmt.on_conflict_do_update(
+                index_elements=["paper_id"], set_={f: stmt.excluded[f] for f in PAPER_FIELDS}))
     return row_counts(engine)
 
 
 def row_counts(engine: Engine) -> dict[str, int]:
     counts = {}
     with engine.connect() as conn:
-        for model in (Patient, HistoryEvent, UseRecord, Factor, Intervention, ProgressObservation):
+        for model in (Patient, HistoryEvent, UseRecord, Factor, Intervention, ProgressObservation, Paper):
             counts[model.__tablename__] = conn.scalar(select(func.count()).select_from(model))
     return counts
 

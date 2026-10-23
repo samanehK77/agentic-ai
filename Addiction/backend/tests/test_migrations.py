@@ -9,6 +9,7 @@ from tests.conftest import alembic_config, recreate_database
 TABLES = {
     "patients", "patient_history_events", "substance_or_behavior_use",
     "triggers_and_risk_factors", "previous_interventions", "progress_observations",
+    "papers", "chat_sessions", "chat_messages",
 }
 
 
@@ -57,6 +58,10 @@ def test_vocabulary_in_models_matches_check_constraints(engine):
         ("previous_interventions", "ck_previous_interventions_type_values"): "intervention_type",
         ("previous_interventions", "ck_previous_interventions_status_values"): "completion_status",
         ("progress_observations", "ck_progress_observations_use_status_values"): "progress_status",
+        ("papers", "ck_papers_document_type_values"): "document_type",
+        ("papers", "ck_papers_ingest_status_values"): "ingest_status",
+        ("chat_messages", "ck_chat_messages_role_values"): "message_role",
+        ("chat_messages", "ck_chat_messages_mode_values"): "chat_mode",
     }
     with engine.connect() as connection:
         for (table, constraint), key in expected.items():

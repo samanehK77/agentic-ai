@@ -48,7 +48,9 @@ def test_no_orphan_rows(conn, table):
 
 
 def test_foreign_keys_exist_for_every_child_table(conn):
-    count = conn.scalar(text("SELECT count(*) FROM pg_constraint WHERE contype = 'f'"))
+    count = conn.scalar(text(
+        "SELECT count(*) FROM pg_constraint WHERE contype = 'f' AND confrelid = 'patients'::regclass "
+        "AND conrelid::regclass::text = ANY(:tables)"), {"tables": CHILD_TABLES})
     assert count == len(CHILD_TABLES)
 
 
@@ -149,6 +151,7 @@ def test_seed_is_idempotent_and_does_not_touch_unchanged_rows(engine):
 def _seed_strings():
     for path in sorted(SEED_DIR.glob("P-*.json")):
         yield from _walk(json.loads(path.read_text(encoding="utf-8")), path.name)
+    yield from _walk(json.loads((SEED_DIR / "papers.json").read_text(encoding="utf-8")), "papers.json")
 
 
 def _walk(node, where, key=""):

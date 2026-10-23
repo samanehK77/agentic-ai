@@ -1,8 +1,14 @@
-# MindEvidence Lab: frontend (Batch 01, mock data)
+# MindEvidence Lab: frontend
 
-Vanilla HTML, CSS and JavaScript (ES modules). No frameworks, no build step, no backend.
+Vanilla HTML, CSS and JavaScript (ES modules). No frameworks, no build step.
 Everything shown is **synthetic or MOCK**: patients are fictional and every document excerpt is
 invented placeholder text, never attributed to a real source.
+
+**Data sources (since Batch 03):** the patient list and patient detail come from the API
+(`http://127.0.0.1:8001`, see `docs/API.md`). Chat replies, citations and the activity timeline
+are still mock until Batches 05-09 and keep their "(mock)" labels. If the API is not running the
+page shows the error state; it never falls back to mock data silently.
+Open `http://localhost:8000/?source=mock` to use mock patients on purpose; a "DEMO DATA (mock)" label is then shown.
 
 ## Run it
 
@@ -15,6 +21,16 @@ python -m http.server 8000
 
 Then open <http://localhost:8000>.
 
+The patients are loaded from the API, so start the database and the API first (see `backend/README.md`):
+
+```bash
+cd backend
+uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+The API address is set in `js/config.js`. The API allows browser requests only from
+`http://127.0.0.1:8000` and `http://localhost:8000`.
+
 ## Structure
 
 ```
@@ -22,22 +38,26 @@ frontend/
   index.html
   css/styles.css
   data/mock-data.js     mock patients, chunks, fixed replies (no UI code)
-  js/api.js             ALL data access; async functions returning mock data
+  js/config.js          API base URL
+  js/adapters.js        reshapes API JSON into the shapes the UI uses (pure functions)
+  js/api.js             ALL data access (API for patients; mock for chat and chunks)
   js/state.js           small observable store
   js/main.js            loads data, updates state, re-renders panels
   js/render/*.js        one module per panel (+ dom.js and states.js helpers)
 ```
 
-### Replacing the mock with a backend (Batch 03)
+### Data access (`js/api.js`)
 
-UI code only calls `js/api.js`. Replace the bodies of these functions with `fetch()` calls that return the same shapes:
+UI code only calls `js/api.js`:
 
-| Function | Returns |
-|----------|---------|
-| `listPatients()` | `[{ id, age, sex, category, summary, treatment_summary }]` |
-| `getPatient(id)` | full patient object |
-| `askQuestion({ patientId, mode, text })` | `{ reply: { text, mode, citations }, chunks, events }` |
-| `getChunk(citationId)` | `{ citation_id, document, section, page, text, score }` |
+| Function | Source | Returns |
+|----------|--------|---------|
+| `listPatients()` | API (`?source=mock` for mock) | `[{ id, age, sex, category, summary, treatment_summary }]` |
+| `getPatient(id)` | API (`?source=mock` for mock) | full patient object (profile plus history, via `adapters.js`) |
+| `askQuestion({ patientId, mode, text })` | mock | `{ reply: { text, mode, citations }, chunks, events }` |
+| `getChunk(citationId)` | mock | `{ citation_id, document, section, page, text, score }` |
+
+The field mapping is in `docs/FRONTEND_INTEGRATION_PLAN.md`.
 
 ## Interaction checklist
 
@@ -56,6 +76,9 @@ UI code only calls `js/api.js`. Replace the bodies of these functions with `fetc
 | [x] | Error state | Demo controls, or `?state=error` (use "Try again" or Reset) |
 | [x] | No-evidence state | Demo controls, or `?state=no-evidence`, then ask a question in RAG or Both mode |
 | [x] | Skip link | Press Tab once on page load |
+| [x] | Patients from the API | Start the API, open `http://localhost:8000`; 10 patients appear |
+| [x] | API error state | Stop the API and reload: "Could not load patients" with "Try again" (no mock fallback) |
+| [x] | Mock patients on purpose | `http://localhost:8000/?source=mock` shows the "DEMO DATA (mock)" label |
 
 ## Safety and honesty
 

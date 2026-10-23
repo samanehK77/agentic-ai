@@ -1,53 +1,58 @@
-# Frontend integration plan (for Batch 03)
+# Frontend integration (status after Batch 03)
 
-Maps every field in `frontend/data/mock-data.js` to a database table and column and to the future API endpoint. Nothing here is built yet: no API exists in Batch 02 and the frontend is unchanged.
+The UI only talks to `frontend/js/api.js`. Since Batch 03 the **patient list and patient detail come from the API**; chat answers and citation chunks are still mock until Batches 05-07.
 
-The UI only talks to `frontend/js/api.js`, so Batch 03 replaces the function bodies with `fetch()` calls and a small adapter that reshapes API JSON into the shapes below.
+New frontend files: `js/config.js` (API base URL, default `http://127.0.0.1:8001`) and `js/adapters.js` (reshapes API JSON into the shapes the renderers already use). Layout and renderers are unchanged.
 
-## Endpoints used by `api.js`
+## What is real and what is mock
 
-| `api.js` function | Future endpoint | Source |
-|-------------------|-----------------|--------|
-| `listPatients()` | `GET /api/patients` | `patients` (+ one row of `substance_or_behavior_use` for the label) |
-| `getPatient(id)` | `GET /api/patients/{patient_id}` | `patients` + all five child tables (same data as `patient_profile.sql`) |
-| `getChunk(citationId)` | `GET /api/chunks/{citation_id}` | Document tables (Batch 05/06), not this batch |
-| `askQuestion(...)` | `POST /api/patients/{patient_id}/questions` | RAG + LLM (Batches 06-08), not this batch |
+| `api.js` function | Source now | Endpoint |
+|-------------------|------------|----------|
+| `listPatients()` | **API** | `GET /api/patients?limit=100` |
+| `getPatient(id)` | **API** | `GET /api/patients/{id}` and `GET /api/patients/{id}/history?limit=100` (two calls in parallel) |
+| `getChunk(citationId)` | mock | Future: document tables (Batch 05/06) |
+| `askQuestion(...)` | mock | Future: RAG + LLM (Batches 06-08) |
 
-## Patient fields (`PATIENTS[]`)
+Rules:
+- **No silent fallback.** If the API is unreachable or answers with an error, `api.js` throws and the existing error state is shown (with "Try again").
+- **Mock patients only on request:** open the page with `?source=mock`. A red label "DEMO DATA (mock)" is then shown under the banner.
+- The demo states `?state=loading|empty|error|no-evidence` still work and are applied before any request (so `?state=error` shows the error state without calling the API).
 
-| Mock field | Table.column | Notes |
-|------------|--------------|-------|
-| `id` | `patients.patient_id` | Same ids `P-001` .. `P-010`. |
-| `age` | `patients.age_at_intake` | Age at intake, not current age. |
-| `sex` ("Male"/"Female") | `patients.gender` | Values become `man`, `woman`, `non_binary`, `other`, `unknown`. The adapter maps them to display labels; the field is renamed `gender`. |
-| `category` ("Alcohol", "Behavioral: gambling") | `patients.primary_category` + `substance_or_behavior_use.substance_or_behavior` | The adapter builds the label, for example `behavioral` + "Online sports betting". |
-| `summary` | `patients.history_summary` | |
-| `treatment_summary` | `patients.treatment_summary` | |
-| `background` | `patients.background` | |
-| `behaviors[]` | `triggers_and_risk_factors.description` where `kind = 'observed_behavior'` | |
-| `history[].period` | `patient_history_events.event_date` + `date_precision` | Adapter formats by precision (year, month, day). |
-| `history[].event` | `patient_history_events.description` | Ordered by `event_date`. |
-| `triggers[]` | `triggers_and_risk_factors.description` where `kind = 'trigger'` | |
-| `previous_interventions[].name` | `previous_interventions.intervention_type` + `setting` | Adapter builds a readable name. |
-| `previous_interventions[].period` | `previous_interventions.start_date` / `end_date` | `end_date` NULL means "ongoing". |
-| `previous_interventions[].outcome` | `previous_interventions.reported_outcome` | |
-| `progress.status` | latest `progress_observations.use_status` + `motivation` | Adapter builds a label. |
-| `progress.note` | latest `progress_observations.note` | Latest = highest `observed_on`. |
+## Field mapping (API -> UI shape)
 
-New fields the API can offer that the mock lacks: `living_situation`, `employment_status`, `social_context`, `co_occurring_symptoms`, `motivation_at_intake`, `intake_date`, `protective_factor` items, and full progress history. The UI can show them later; no change is required for the first integration.
+| UI field (`mock-data.js` shape) | API source | Adapter rule |
+|---------------------------------|------------|--------------|
+| `id` | `patient_id` | as is |
+| `age` | `age_at_intake` | as is (age at intake) |
+| `sex` | `gender` | `man` -> "Man", `woman` -> "Woman", `non_binary` -> "Non-binary", `other`, `unknown` |
+| `category` | `primary_category` + `primary_use_subject` | "Alcohol", "Cannabis", "Opioids", "Stimulants"; `behavioral` -> "Behavioral: Online sports betting" |
+| `summary` | `history_summary` | as is |
+| `treatment_summary` | `treatment_summary` | as is |
+| `background` | `background` | as is |
+| `behaviors[]` | `factors` where `kind = observed_behavior` | `description` |
+| `history[].period` | history items where `source = history`: `event_date` + `date_precision` | "2012" / "Sep 2012" / "14 Mar 2022" |
+| `history[].event` | `summary` of those items | as is |
+| `triggers[]` | `factors` where `kind = trigger` | `description` |
+| `previous_interventions[].name` | `interventions[].type` + `setting` | "Outpatient counseling (Community clinic)" |
+| `previous_interventions[].period` | `start_date`, `end_date` | "14 Mar 2022 to 20 Jun 2022", or "... to ongoing" |
+| `previous_interventions[].outcome` | `reported_outcome` | as is |
+| `progress.status` | latest `progress` item: `use_status` + `motivation` | "Reduced, motivation: engaged" |
+| `progress.note` | latest `progress` item: `note` | as is |
 
-**The seed supersedes the mock text.** Names, ages, wording and some details differ (for example P-004's background). After Batch 03 the database is the source of truth and the mock patient text will be removed.
+Fields the API already provides but the UI does not show yet: `living_situation`, `employment_status`, `social_context`, `co_occurring_symptoms`, `motivation_at_intake`, `intake_date`, protective factors, the full progress list.
+
+The seed text supersedes the Batch 01 mock text; some names, ages and details differ. The database is the source of truth.
 
 ## Not from this database
 
 | Mock item | Where it comes from later |
 |-----------|---------------------------|
-| `CHUNKS[]` (`citation_id`, `document`, `section`, `page`, `text`, `score`) | Document and chunk tables (Batch 05) and retrieval (Batch 06). The chunk fields already match. |
+| `CHUNKS[]` (`citation_id`, `document`, `section`, `page`, `text`, `score`) | Document and chunk tables (Batch 05) and retrieval (Batch 06). Field names already match. |
 | `REPLIES`, reply `citations` | LLM answers with citations (Batch 07). |
 | `TIMELINE_STEPS`, timeline events | Audit events (Batch 09). |
-| `MODES` | Static configuration shared by frontend and backend. |
-| `SYNTHETIC_NOTICE` | Stays a frontend constant. |
+| `MODES` | Shared configuration. API values are `general_knowledge`, `rag`, `both`; the UI uses `gk`, `rag`, `both` and will map them when chat is connected. |
 
 ## Rules to keep
 - Patient facts, research evidence and model interpretations stay in separate tables and separate UI blocks.
-- Every patient response includes `is_synthetic: true` so the UI can keep showing the synthetic labels.
+- Every patient response includes `is_synthetic: true`; the UI keeps its synthetic banner regardless.
+- The API is development-only and unauthenticated (see `API_ACCESS_POLICY.md`).

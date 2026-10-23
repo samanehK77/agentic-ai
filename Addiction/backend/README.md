@@ -1,7 +1,8 @@
-# Backend: database (Batch 02)
+# Backend: database and API (Batches 02-03)
 
-PostgreSQL schema, migrations, seed data and tests for 10 **synthetic** patient cases.
-No API yet (Batch 03). See `docs/DATA_DICTIONARY.md` for every table and field.
+PostgreSQL schema, migrations, seed data, a FastAPI API and tests for 10 **synthetic** patient cases.
+See `docs/DATA_DICTIONARY.md` (tables), `docs/API.md` (endpoints) and `docs/API_ACCESS_POLICY.md`
+(**the API is development-only and not secure**).
 
 ## Layout
 
@@ -12,10 +13,13 @@ Addiction/
   backend/
     requirements.txt
     alembic.ini, alembic/     migrations
+    app/                      FastAPI app: main, config, deps, errors, middleware, services,
+                              routers/, schemas/, repositories/ (all SQL)
     db/config.py              builds the database URL from environment variables
     db/models.py              SQLAlchemy 2.x models
     db/seed.py                idempotent seed (python -m db.seed)
     db/seed_data/P-001.json ... P-010.json   readable seed content, one file per patient
+    db/seed_data/papers.json  research paper metadata (4 papers)
     db/queries/*.sql          patient profile and chronological history
     tests/                    pytest suite
 ```
@@ -37,7 +41,11 @@ POSTGRES_USER=mindevidence
 POSTGRES_PASSWORD=<choose a password>
 POSTGRES_DB=mindevidence
 POSTGRES_PORT=5432
+APP_ENV=development
 ```
+
+`APP_ENV=development` is required: the API refuses to start without it. Optionally set
+`CORS_ORIGINS` (comma-separated, no wildcard); the default allows `http://127.0.0.1:8000` and `http://localhost:8000`.
 
 Leave `DATABASE_URL` empty unless you want to override the settings above.
 
@@ -75,7 +83,17 @@ python -m db.seed
 
 Running it again is safe: rows are updated in place, never duplicated.
 
-### 6. Run the tests
+### 6. Start the API
+
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+Open <http://127.0.0.1:8001/docs> for the interactive documentation. Keep `--host 127.0.0.1`: the API has
+no authentication, so it must not be reachable from other machines. The frontend (port 8000) shows the
+patients from this API; see `docs/API.md` for example requests.
+
+### 7. Run the tests
 
 ```powershell
 pytest
@@ -83,7 +101,7 @@ pytest
 
 Tests use a separate database named `<POSTGRES_DB>_test` that they create and drop themselves; your real data is never touched.
 
-### 7. Look at the data (optional)
+### 8. Look at the data (optional)
 
 ```powershell
 docker compose exec db psql -U mindevidence -d mindevidence -c "SELECT patient_id, primary_category, age_at_intake FROM patients ORDER BY patient_id;"
@@ -101,5 +119,6 @@ This deletes the database volume. Start again from step 2.
 
 ## Notes
 - The database URL uses `127.0.0.1` rather than `localhost`: on Windows `localhost` can resolve to IPv6 and the connection hangs.
-- To undo the migration: `alembic downgrade base`.
+- To undo migrations: `alembic downgrade base`. After pulling new migrations run `alembic upgrade head` and `python -m db.seed` again.
+- The API port is 8001 because the frontend uses 8000.
 - The seed content is fictional. Edit the JSON files in `db/seed_data/` and run `python -m db.seed` again to apply changes; `pytest` re-checks timeline consistency.

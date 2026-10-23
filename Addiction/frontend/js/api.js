@@ -1,10 +1,15 @@
-// All data access goes through this file. Every function is async and returns
-// mock data today. In Batch 03 replace the bodies with fetch() calls that return
-// the same shapes; no UI code needs to change.
+// All data access goes through this file. Every function is async.
+//
+// Patient list and detail come from the API (Batch 03). There is NO silent fallback:
+// if the API fails, the error reaches the UI's error state. Mock patients are used only
+// when the page is opened with ?source=mock (the UI then shows a "DEMO DATA (mock)" label).
+// Chat answers and citation chunks stay mock until Batches 05-07.
 //
 // Demo states (?state=...): ready | loading | empty | error | no-evidence
 
 import { PATIENTS, CHUNKS, REPLIES, TIMELINE_STEPS } from "../data/mock-data.js";
+import { API_BASE_URL } from "./config.js";
+import { patientDetail, patientListItem } from "./adapters.js";
 
 export const DEMO_STATES = ["ready", "loading", "empty", "error", "no-evidence"];
 
@@ -33,19 +38,55 @@ async function gate(ms = 200) {
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+export function isMockSource() {
+  return new URLSearchParams(window.location.search).get("source") === "mock";
+}
+
+async function request(path) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers: { Accept: "application/json" } });
+  } catch {
+    throw new Error(`Could not reach the API at ${API_BASE_URL}. Is it running?`);
+  }
+  if (!response.ok) {
+    let message = `The API answered with status ${response.status}.`;
+    try {
+      const body = await response.json();
+      if (body?.error?.message) message = `${body.error.message} (request ${body.error.request_id})`;
+    } catch {
+      // keep the generic message
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export async function listPatients() {
   await gate();
   if (demoState === "empty") return [];
-  return PATIENTS.map(({ id, age, sex, category, summary, treatment_summary }) => ({
-    id, age, sex, category, summary, treatment_summary,
-  }));
+  if (isMockSource()) {
+    return PATIENTS.map(({ id, age, sex, category, summary, treatment_summary }) => ({
+      id, age, sex, category, summary, treatment_summary,
+    }));
+  }
+  const page = await request("/api/patients?limit=100");
+  return page.items.map(patientListItem);
 }
 
 export async function getPatient(id) {
   await gate();
-  const patient = PATIENTS.find((p) => p.id === id);
-  if (!patient) throw new Error(`Patient ${id} not found.`);
-  return clone(patient);
+  if (isMockSource()) {
+    const patient = PATIENTS.find((p) => p.id === id);
+    if (!patient) throw new Error(`Patient ${id} not found.`);
+    return clone(patient);
+  }
+  const encoded = encodeURIComponent(id);
+  const [profile, history] = await Promise.all([
+    request(`/api/patients/${encoded}`),
+    request(`/api/patients/${encoded}/history?limit=100`),
+  ]);
+  return patientDetail(profile, history.items);
 }
 
 export async function getChunk(citationId) {

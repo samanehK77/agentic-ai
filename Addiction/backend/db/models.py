@@ -3,11 +3,12 @@
 Allowed values live in the VOCAB dict. The Alembic migration repeats them as CHECK
 constraints, and a test confirms the two stay in sync.
 """
+import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, MetaData,
-    SmallInteger, Text, func, text,
+    SmallInteger, Text, Uuid, func, text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -31,6 +32,11 @@ VOCAB = {
     ),
     "completion_status": ("completed", "dropped_out", "ongoing", "not_started", "unknown"),
     "progress_status": ("abstinent", "reduced", "unchanged", "increased", "relapse", "unknown"),
+    # Batch 03
+    "document_type": ("guideline", "guide", "review", "unknown"),
+    "ingest_status": ("not_ingested", "ingested", "failed"),
+    "message_role": ("user", "assistant"),
+    "chat_mode": ("general_knowledge", "rag", "both"),
 }
 
 
@@ -234,4 +240,67 @@ class ProgressObservation(Base):
         CheckConstraint("length(trim(note)) > 0", name="note_not_blank"),
         SYNTHETIC_CHECK,
         Index("ix_progress_observations_patient_date", "patient_id", "observed_on"),
+    )
+
+
+# ---------------------------------------------------------------- Batch 03 tables
+# Papers hold metadata only (no document text, no chunks: those arrive in Batch 05).
+# chat_sessions is named so it is never confused with the login session of Batch 04.
+
+
+class Paper(Base):
+    __tablename__ = "papers"
+
+    paper_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    document_type: Mapped[str] = mapped_column(Text, nullable=False)
+    publisher: Mapped[str] = mapped_column(Text, nullable=False)
+    publication_year: Mapped[str] = mapped_column(Text, nullable=False)  # four digits or 'unknown'
+    source_note: Mapped[str] = mapped_column(Text, nullable=False)
+    ingest_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_ingested'"))
+    created_at: Mapped[datetime] = _created()
+
+    __table_args__ = (
+        CheckConstraint("paper_id ~ '^[a-z0-9][a-z0-9-]*$'", name="id_format"),
+        CheckConstraint(_in("document_type", "document_type"), name="document_type_values"),
+        CheckConstraint(_in("ingest_status", "ingest_status"), name="ingest_status_values"),
+        CheckConstraint("publication_year ~ '^(unknown|[0-9]{4})$'", name="year_format"),
+        CheckConstraint(
+            "length(trim(title)) > 0 AND length(trim(publisher)) > 0 AND length(trim(source_note)) > 0",
+            name="text_not_blank",
+        ),
+    )
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    patient_id: Mapped[str] = mapped_column(Text, ForeignKey("patients.patient_id", ondelete="RESTRICT"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)  # reserved for Batch 04; no foreign key yet
+    created_at: Mapped[datetime] = _created()
+
+    __table_args__ = (
+        CheckConstraint("length(trim(title)) BETWEEN 1 AND 120", name="title_length"),
+        Index("ix_chat_sessions_patient_created", "patient_id", "created_at"),
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("chat_sessions.session_id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _created()
+
+    __table_args__ = (
+        CheckConstraint(_in("role", "message_role"), name="role_values"),
+        CheckConstraint(f"mode IS NULL OR {_in('mode', 'chat_mode')}", name="mode_values"),
+        CheckConstraint("length(trim(content)) > 0 AND length(content) <= 8000", name="content_length"),
+        Index("ix_chat_messages_session_created", "session_id", "created_at"),
     )
