@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.auth_service import AuthUser
+from app.retrieval import service as retrieval_service
 from app.errors import not_found, service_unavailable
 from app.repositories import admin_papers as admin_papers_repo
 from app.repositories import health as health_repo
@@ -85,3 +86,13 @@ def admin_get_chunk(db: Session, chunk_id: str) -> dict:
     if chunk is None:
         raise not_found(f"Chunk {chunk_id} was not found.")
     return chunk
+
+
+# ---------------------------------------------------------------- semantic search (Batch 06)
+
+def retrieval_search(db: Session, provider, *, query: str, top_k: int, paper_id: str | None,
+                     min_similarity: float | None) -> dict:
+    if paper_id is not None and not admin_papers_repo.paper_exists(db, paper_id):
+        raise not_found(f"Paper {paper_id} was not found.")
+    return retrieval_service.search(db, provider, query=query, top_k=top_k, paper_id=paper_id,
+                                    min_similarity=min_similarity)

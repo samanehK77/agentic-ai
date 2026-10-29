@@ -65,6 +65,7 @@ def test_vocabulary_in_models_matches_check_constraints(engine):
         ("paper_chunks", "ck_paper_chunks_section_type_values"): "section_type",
         ("ingestion_runs", "ck_ingestion_runs_status_values"): "run_status",
         ("users", "ck_users_role_values"): "user_role",
+        ("paper_chunks", "ck_paper_chunks_embedding_status_values"): "embedding_status",
         ("chat_messages", "ck_chat_messages_role_values"): "message_role",
         ("chat_messages", "ck_chat_messages_mode_values"): "chat_mode",
     }

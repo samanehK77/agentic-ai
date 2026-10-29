@@ -11,6 +11,7 @@ from sqlalchemy import (
     SmallInteger, Text, UniqueConstraint, Uuid, func, text,
 )
 from sqlalchemy import text as sql_text  # the PaperChunk column named "text" shadows text() inside that class
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -34,6 +35,8 @@ VOCAB = {
     ),
     "completion_status": ("completed", "dropped_out", "ongoing", "not_started", "unknown"),
     "progress_status": ("abstinent", "reduced", "unchanged", "increased", "relapse", "unknown"),
+    # Batch 06
+    "embedding_status": ("pending", "embedded", "skipped"),
     # Batch 05
     "metadata_source": ("project_list", "document_text"),
     "section_type": ("body", "table_or_figure", "references", "front_matter"),
@@ -388,6 +391,11 @@ class PaperChunk(Base):
     text_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     possible_injection: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sql_text("false"))
     created_at: Mapped[datetime] = _created()
+    # Batch 06: exact-search embeddings. NULL unless embedding_status = 'embedded'.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
+    embedding_fingerprint: Mapped[str | None] = mapped_column(Text)
+    embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    embedding_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("'pending'"))
 
     __table_args__ = (
         CheckConstraint("chunk_id ~ '^[a-z0-9][a-z0-9-]*-c[0-9]{4,}$'", name="id_format"),
@@ -398,6 +406,11 @@ class PaperChunk(Base):
         CheckConstraint("page_start >= 1 AND page_end >= page_start", name="pages_valid"),
         CheckConstraint(_in("section_type", "section_type"), name="section_type_values"),
         CheckConstraint("text_sha256 ~ '^[0-9a-f]{64}$'", name="sha256_format"),
+        CheckConstraint(_in("embedding_status", "embedding_status"), name="embedding_status_values"),
+        CheckConstraint(
+            "(embedding IS NOT NULL) = (embedding_status = 'embedded' AND embedding_fingerprint IS NOT NULL)",
+            name="embedding_consistent"),
+        Index("ix_paper_chunks_embedding_status", "embedding_status"),
         Index("ix_paper_chunks_paper_id", "paper_id"),
         Index("ix_paper_chunks_paper_ordinal", "paper_id", "ordinal", unique=True),
     )

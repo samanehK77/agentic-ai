@@ -33,6 +33,7 @@ Windows PowerShell, from the project folder `Addiction` (this is `$HOME\Desktop\
 - Run the tests: `pytest` (from `backend/`; uses a separate `<POSTGRES_DB>_test` database)
 - Serve the frontend: `cd frontend`, `python -m http.server 8000`, then open `http://localhost:8000`. Use `localhost`, never `127.0.0.1` (login cookies are host-scoped). `?source=mock` shows demo data without the API.
 - Google sign-in setup and manual test checklist: `docs/GOOGLE_AUTH_SETUP.md`
+- Embeddings and search (from `backend/`): `pip install -r requirements-embeddings.txt`, `python -m app.retrieval.download_model`, `alembic upgrade head`, `python -m app.embedding` (idempotent; `--dry-run`, `--paper`, `--force`), then `python -m app.eval_retrieval` (smoke-level check). The API and tests do not need torch. Details: `docs/RETRIEVAL.md`
 - Ingest the research PDFs (from `backend/`): `python -m app.ingestion --dry-run`, then `python -m app.ingestion` (options, tokenizer download and report: `docs/INGESTION.md`; needs `models\all-MiniLM-L6-v2\tokenizer.json`, which is git-ignored)
 
 ## Conventions
@@ -60,4 +61,4 @@ Windows PowerShell, from the project folder `Addiction` (this is `$HOME\Desktop\
 
 ## Progress
 <!-- وضعیت فعلی پروژه. می‌تواند به فایل جدایی مثل PROGRESS.md ارجاع بدهد. -->
-Batches 00-05 are built (frontend, PostgreSQL schema and seed, FastAPI API, Google sign-in with sessions, CSRF and ownership, PDF ingestion into chunks with admin-only read endpoints). The Google login was tested by the user. Details, decisions and known issues: `PROGRESS.md`. Next: Batch 06 (pgvector retrieval). Local plain-HTTP development setup only; do not claim production readiness.
+Batches 00-06 are built (frontend, PostgreSQL schema and seed, FastAPI API, Google sign-in with sessions, CSRF and ownership, PDF ingestion into chunks with admin-only read endpoints, pgvector semantic search with real evidence in the UI and no answer generation yet). The Google login was tested by the user. Details, decisions and known issues: `PROGRESS.md`. Next: Batch 07 (DeepSeek answers with citations). Local plain-HTTP development setup only; do not claim production readiness.

@@ -10,7 +10,7 @@
 
 import { PATIENTS, CHUNKS, REPLIES, TIMELINE_STEPS } from "../data/mock-data.js";
 import { API_BASE_URL } from "./config.js";
-import { patientDetail, patientListItem } from "./adapters.js";
+import { evidenceChunk, patientDetail, patientListItem } from "./adapters.js";
 
 // Thrown when the API answers 401, so the UI can show the signed-out state instead of an error.
 export class AuthError extends Error {}
@@ -128,8 +128,39 @@ export async function getChunk(citationId) {
   return clone(chunk);
 }
 
-// Returns { reply, chunks, events }. The reply depends only on the mode.
+export const PLACEHOLDER_REPLY = "Answer generation arrives in Batch 07. Showing retrieved evidence only.";
+
+// Modes rag and both (outside ?source=mock) search the real documents (Batch 06). Answer generation does not exist
+// yet, so the reply is an explicit placeholder with NO citations: a citation may only ever point to a retrieved chunk.
+async function askWithRetrieval({ patientId, mode, text }) {
+  await gate(0);
+  const now = Date.now();
+  const event = (index, type, label, detail) => ({
+    id: `evt-${now}-${index}`, type, label, detail, time: new Date(now + index * 50).toISOString(), patient_id: patientId,
+  });
+  let chunks = [];
+  let latencyMs = 0;
+  if (demoState !== "no-evidence") { // the no-evidence demo needs no network call
+    const started = performance.now();
+    const body = await request("/api/retrieval/search", { method: "POST", body: { query: text, top_k: 5 } });
+    chunks = body.results.map(evidenceChunk);
+    latencyMs = body.latency_ms ?? Math.round(performance.now() - started);
+  }
+  return {
+    reply: { text: PLACEHOLDER_REPLY, mode, citations: [], placeholder: true },
+    chunks,
+    events: [
+      event(0, "retrieval", chunks.length ? "Chunks retrieved" : "No chunks above the threshold",
+        demoState === "no-evidence" ? "demo state" : `${chunks.length} chunk(s) · ${latencyMs} ms`),
+      event(1, "generation", "Answer generation: not implemented yet", "Batch 07"),
+    ],
+    question: text,
+  };
+}
+
+// Returns { reply, chunks, events }. For general knowledge (and ?source=mock) the reply is fixed mock text chosen by mode.
 export async function askQuestion({ patientId, mode, text }) {
+  if ((mode === "rag" || mode === "both") && !isMockSource()) return askWithRetrieval({ patientId, mode, text });
   await gate(450);
   const usesRetrieval = mode === "rag" || mode === "both";
   const noEvidence = usesRetrieval && demoState === "no-evidence";

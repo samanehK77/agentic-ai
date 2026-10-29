@@ -3,6 +3,8 @@
 Run from backend/:
     uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 """
+import logging
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.engine import Engine
@@ -12,7 +14,9 @@ from app.errors import install_error_handlers
 from app.deps import current_user, require_role
 from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMiddleware
 from app.schemas.common import ERROR_401
-from app.routers import admin_papers, auth, health, papers, patients, sessions
+from app.retrieval.embedder import Embedder, EmbedderProvider
+from app.retrieval.ratelimit import SlidingWindowLimiter
+from app.routers import admin_papers, auth, health, papers, patients, retrieval, sessions
 from db.config import get_engine
 
 DESCRIPTION = """
@@ -32,10 +36,19 @@ TAGS = [
     {"name": "papers", "description": "Research corpus metadata (no document text)."},
     {"name": "admin", "description": "Administrator-only ingestion results, including full chunk text."},
     {"name": "sessions", "description": "Chat sessions and their messages."},
+    {"name": "retrieval", "description": "Semantic search over the embedded research chunks."},
 ]
 
 
-def create_app(engine: Engine | None = None, settings: Settings | None = None) -> FastAPI:
+def _warm_up(provider: EmbedderProvider) -> None:
+    """Optional (RETRIEVAL_WARMUP=true): load the model at startup. A failure is only logged; search then answers 503."""
+    try:
+        provider.get()
+    except Exception as error:
+        logging.getLogger("mindevidence.retrieval").warning("warm-up skipped: %s", type(error).__name__)
+
+
+def create_app(engine: Engine | None = None, settings: Settings | None = None, embedder: Embedder | None = None) -> FastAPI:
     settings = settings or load_settings()  # raises unless APP_ENV=development
 
     app = FastAPI(
@@ -46,6 +59,11 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
     )
     app.state.engine = engine or get_engine()
     app.state.settings = settings
+    # The embedding model loads lazily on the first search (torch is optional). Tests pass a fake embedder.
+    app.state.embedder_provider = EmbedderProvider.fixed(embedder) if embedder else EmbedderProvider()
+    app.state.rate_limiter = SlidingWindowLimiter(settings.retrieval_rate_limit_per_minute)
+    if settings.retrieval_warmup and embedder is None:
+        _warm_up(app.state.embedder_provider)
     app.state.used_states = {}  # OAuth states already consumed (state -> expiry), so a signed cookie works once
 
     # Added first = inner. Request ids are outermost so even CORS preflight responses carry one.
@@ -63,7 +81,7 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
 
     app.include_router(health.router)
     app.include_router(auth.router)
-    for router in (patients.router, papers.router, sessions.router):
+    for router in (patients.router, papers.router, sessions.router, retrieval.router):
         app.include_router(router, dependencies=[Depends(current_user)], responses=ERROR_401)  # 401 unless signed in
     # Administrator-only (401 when signed out, 403 for students). Read-only: nothing here starts an ingestion.
     app.include_router(admin_papers.router, dependencies=[Depends(require_role("admin"))], responses=ERROR_401)

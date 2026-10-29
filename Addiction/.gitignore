@@ -10,3 +10,4 @@ pgdata/
 .pytest_cache/
 data/ingestion_reports/
 backend/models/
+data/eval_reports/

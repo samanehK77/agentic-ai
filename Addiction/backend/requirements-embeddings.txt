@@ -1,0 +1,10 @@
+# Optional: only needed to build embeddings (python -m app.embedding), to run live search and the retrieval evaluation.
+# The API and the test suite start and pass without these packages (search then answers 503 retrieval_unavailable).
+#
+#   pip install -r requirements-embeddings.txt
+#
+# On Windows the torch wheel from PyPI is the CPU-only build (about 127 MB). On Linux install the CPU build first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers>=6,<7
+torch>=2.2
+huggingface-hub>=1.3,<3

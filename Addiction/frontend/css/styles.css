@@ -203,6 +203,7 @@ a.btn { text-decoration: none; }
   color: #2d3a4b;
 }
 .chip-mock { background: #fff4cc; color: var(--warn-fg); border-color: #e0c86a; }
+.chip-warn { background: #fff4cc; color: var(--warn-fg); border-color: #b58900; font-weight: 700; }
 
 .mode-pill {
   display: inline-block;
@@ -283,6 +284,7 @@ a.btn { text-decoration: none; }
 .message-who { font-size: 0.75rem; font-weight: 700; color: var(--muted); margin-bottom: 0.15rem; }
 .message-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
 .message-assistant { border: 1px solid var(--interp-line); border-left-width: 6px; border-left-style: dotted; background: var(--interp-bg); }
+.message-placeholder { border: 1px dashed var(--border); border-left-width: 6px; background: #f7f9fb; }
 .message-error { background: var(--error-bg); color: var(--error-fg); border-color: var(--error-fg); }
 .message-text { overflow-wrap: anywhere; }
 .citation-row { margin-top: 0.4rem; display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; font-size: 0.85rem; }

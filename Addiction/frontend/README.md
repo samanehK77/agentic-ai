@@ -92,3 +92,8 @@ The field mapping is in `docs/FRONTEND_INTEGRATION_PLAN.md`.
   - Patient fact (synthetic): blue, person icon, solid left border
   - Research evidence (MOCK): green, document icon, dashed border
   - Model interpretation (mock): purple, speech-bubble icon, dotted border
+
+## Retrieval (Batch 06)
+
+In **RAG** and **Both** mode the question is sent to `POST /api/retrieval/search` and the Evidence Inspector shows the real chunks with their "cosine similarity". Answer generation arrives in Batch 07, so the reply is an explicit placeholder with **no citations**; General Knowledge replies stay fixed mock text. A chunk flagged `possible_injection` shows a warning badge. If search is not ready the page shows the API's message (for example "run python -m app.embedding"). `?source=mock` still shows mock evidence. See `docs/FRONTEND_INTEGRATION_PLAN.md` and `docs/RETRIEVAL.md`.
+

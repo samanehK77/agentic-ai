@@ -179,8 +179,8 @@ def make_app(engine):
 
     from app.config import load_settings
 
-    def factory(**changes):
-        return create_app(engine=engine, settings=dataclasses.replace(load_settings(), **changes))
+    def factory(embedder=None, **changes):
+        return create_app(engine=engine, settings=dataclasses.replace(load_settings(), **changes), embedder=embedder)
 
     return factory
 

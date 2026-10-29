@@ -1,0 +1,134 @@
+{
+  "_readme": [
+    "Smoke-level retrieval check, NOT a benchmark. Labels are keyword based: a retrieved chunk counts as relevant when it comes from one of expected_papers AND its text matches ANY of the regex patterns (case-insensitive).",
+    "To add a query: append an object to 'queries' with id, kind ('in_domain' or 'out_of_domain'), query, and for in-domain queries expected_papers (paper ids from db/seed_data/papers.json) and patterns (regular expressions a relevant chunk must contain).",
+    "Write expectations from what the documents are about BEFORE looking at what the retriever returns; do not tune patterns to the results. Run: python -m app.eval_retrieval (add --check-patterns to see that every pattern occurs in the expected papers)."
+  ],
+  "queries": [
+    {
+      "id": "nida-principles",
+      "kind": "in_domain",
+      "query": "What are the principles of effective drug addiction treatment?",
+      "expected_papers": ["nida-principles-of-drug-addiction-treatment"],
+      "patterns": ["no single treatment", "readily available", "complex but treatable"]
+    },
+    {
+      "id": "nida-opioid-medications",
+      "kind": "in_domain",
+      "query": "Which medications are used to treat opioid addiction?",
+      "expected_papers": ["nida-principles-of-drug-addiction-treatment", "who-mhgap-guideline-2023"],
+      "patterns": ["methadone", "buprenorphine", "naltrexone"]
+    },
+    {
+      "id": "nida-behavioral-therapies",
+      "kind": "in_domain",
+      "query": "How do behavioral therapies such as contingency management and cognitive-behavioral therapy treat drug addiction?",
+      "expected_papers": ["nida-principles-of-drug-addiction-treatment", "psychosocial-interventions-for-alcohol-use-disorder-review"],
+      "patterns": ["contingency management", "cognitive.behavio"]
+    },
+    {
+      "id": "guideline-alcohol-withdrawal",
+      "kind": "in_domain",
+      "query": "What does WHO recommend for managing alcohol withdrawal?",
+      "expected_papers": ["who-mhgap-guideline-2023", "who-mhgap-intervention-guide-v2"],
+      "patterns": ["withdrawal"]
+    },
+    {
+      "id": "guideline-psychosocial-substance-use",
+      "kind": "in_domain",
+      "query": "Which psychosocial interventions are recommended for people with substance use disorders?",
+      "expected_papers": ["who-mhgap-guideline-2023", "who-mhgap-intervention-guide-v2"],
+      "patterns": ["psychosocial intervention"]
+    },
+    {
+      "id": "guideline-naloxone-overdose",
+      "kind": "in_domain",
+      "query": "Should naloxone be available to prevent death from opioid overdose?",
+      "expected_papers": ["who-mhgap-guideline-2023", "who-mhgap-intervention-guide-v2"],
+      "patterns": ["naloxone", "overdose"]
+    },
+    {
+      "id": "ig-suicide-self-harm",
+      "kind": "in_domain",
+      "query": "How should a health worker assess a person at risk of suicide or self-harm?",
+      "expected_papers": ["who-mhgap-intervention-guide-v2", "who-mhgap-guideline-2023"],
+      "patterns": ["self-harm", "suicid"]
+    },
+    {
+      "id": "ig-epilepsy",
+      "kind": "in_domain",
+      "query": "How is epilepsy managed with antiseizure medication?",
+      "expected_papers": ["who-mhgap-intervention-guide-v2", "who-mhgap-guideline-2023"],
+      "patterns": ["epilep", "seizure", "convuls"]
+    },
+    {
+      "id": "ig-depression-signs",
+      "kind": "in_domain",
+      "query": "What are the signs and symptoms of depression in adults?",
+      "expected_papers": ["who-mhgap-intervention-guide-v2", "who-mhgap-guideline-2023"],
+      "patterns": ["depress"]
+    },
+    {
+      "id": "cochrane-combined-treatment",
+      "kind": "in_domain",
+      "query": "Does adding psychosocial treatment to naltrexone or acamprosate reduce heavy drinking?",
+      "expected_papers": ["cochrane-combined-interventions-alcohol-use-disorder-2025", "psychosocial-interventions-for-alcohol-use-disorder-review"],
+      "patterns": ["naltrexone", "acamprosate"]
+    },
+    {
+      "id": "cochrane-risk-of-bias",
+      "kind": "in_domain",
+      "query": "How was risk of bias assessed in the included randomised trials?",
+      "expected_papers": ["cochrane-combined-interventions-alcohol-use-disorder-2025"],
+      "patterns": ["risk of bias"]
+    },
+    {
+      "id": "cochrane-outcomes",
+      "kind": "in_domain",
+      "query": "Which outcomes did the review measure, such as abstinence and dropouts?",
+      "expected_papers": ["cochrane-combined-interventions-alcohol-use-disorder-2025"],
+      "patterns": ["abstinen", "dropout", "drop-out"]
+    },
+    {
+      "id": "psychosocial-motivational-interviewing",
+      "kind": "in_domain",
+      "query": "How effective is motivational interviewing for alcohol use disorder?",
+      "expected_papers": ["psychosocial-interventions-for-alcohol-use-disorder-review", "nida-principles-of-drug-addiction-treatment", "cochrane-combined-interventions-alcohol-use-disorder-2025"],
+      "patterns": ["motivational interviewing"]
+    },
+    {
+      "id": "psychosocial-couples-therapy",
+      "kind": "in_domain",
+      "query": "What is behavioral couples therapy and when does it work best?",
+      "expected_papers": ["psychosocial-interventions-for-alcohol-use-disorder-review"],
+      "patterns": ["couples therapy"]
+    },
+    {
+      "id": "psychosocial-relapse-prevention",
+      "kind": "in_domain",
+      "query": "How do relapse prevention and coping skills training work in cognitive behavioral therapy for alcohol use disorder?",
+      "expected_papers": ["psychosocial-interventions-for-alcohol-use-disorder-review", "cochrane-combined-interventions-alcohol-use-disorder-2025", "nida-principles-of-drug-addiction-treatment"],
+      "patterns": ["relapse prevention", "coping"]
+    },
+    {
+      "id": "out-cooking",
+      "kind": "out_of_domain",
+      "query": "How do I cook spaghetti carbonara with eggs and pancetta?"
+    },
+    {
+      "id": "out-football",
+      "kind": "out_of_domain",
+      "query": "Who won the football world cup final in 2018 and what was the score?"
+    },
+    {
+      "id": "out-finance",
+      "kind": "out_of_domain",
+      "query": "What is the current price of Bitcoin and how are stock markets doing today?"
+    },
+    {
+      "id": "out-programming",
+      "kind": "out_of_domain",
+      "query": "How do I write a Python function that sorts a list of dictionaries by a key?"
+    }
+  ]
+}

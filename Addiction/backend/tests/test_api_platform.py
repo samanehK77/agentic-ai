@@ -97,6 +97,7 @@ EXPECTED_OPERATIONS = {
     ("get", "/api/patients/{patient_id}"),
     ("get", "/api/patients/{patient_id}/history"),
     ("get", "/api/papers"),
+    ("post", "/api/retrieval/search"),
     ("get", "/api/admin/papers"),
     ("get", "/api/admin/papers/{paper_id}"),
     ("get", "/api/admin/papers/{paper_id}/chunks"),

@@ -20,8 +20,10 @@ HTTP_CODES = {401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "met
 class ApiError(Exception):
     """An expected failure with a status code, a stable code and a safe message."""
 
-    def __init__(self, status_code: int, code: str, message: str, details: list[dict] | None = None):
+    def __init__(self, status_code: int, code: str, message: str, details: list[dict] | None = None,
+                 headers: dict[str, str] | None = None):
         super().__init__(message)
+        self.headers = headers or {}
         self.status_code = status_code
         self.code = code
         self.message = message
@@ -52,18 +54,19 @@ def request_id_of(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
 
 
-def error_response(request: Request, status_code: int, code: str, message: str, details: list[dict] | None = None) -> JSONResponse:
+def error_response(request: Request, status_code: int, code: str, message: str, details: list[dict] | None = None,
+                   headers: dict[str, str] | None = None) -> JSONResponse:
     body = {"error": {"code": code, "message": message, "request_id": request_id_of(request)}}
     if details:
         body["error"]["details"] = details
     # Set here as well: the outermost server-error layer builds 500 responses outside our middleware.
-    return JSONResponse(body, status_code=status_code, headers={REQUEST_ID_HEADER: request_id_of(request)})
+    return JSONResponse(body, status_code=status_code, headers={**(headers or {}), REQUEST_ID_HEADER: request_id_of(request)})
 
 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def handle_api_error(request: Request, exc: ApiError):
-        return error_response(request, exc.status_code, exc.code, exc.message, exc.details)
+        return error_response(request, exc.status_code, exc.code, exc.message, exc.details, exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(request: Request, exc: RequestValidationError):

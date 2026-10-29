@@ -253,3 +253,18 @@ Statistics about each ingestion run (never document text).
 | `results` | jsonb | Per document: status, action, pages, low-text page count, chunk count. |
 
 Dry runs write no row.
+
+# Added in Batch 06 (migration 0005)
+
+Embeddings for semantic search (see `docs/RETRIEVAL.md`). The migration creates the `vector` extension (pgvector) and adds columns to `paper_chunks`. **No ANN index** (HNSW / ivfflat) exists: exact search is used.
+
+## paper_chunks (new columns)
+| Column | Type | Purpose / rules |
+|--------|------|-----------------|
+| `embedding` | vector(384), nullable | L2-normalized embedding of `text` (all-MiniLM-L6-v2). Present only when `embedding_status = 'embedded'`. |
+| `embedding_fingerprint` | text, nullable | Model name + exact revision + dimension + normalization, e.g. `sentence-transformers/all-MiniLM-L6-v2@1110a243...|dim=384|l2norm`. Vectors with different fingerprints must never be compared. |
+| `embedded_at` | timestamptz, nullable | When the vector was stored. |
+| `embedding_status` | text, default `pending` | `pending` (new or changed chunk), `embedded` or `skipped` (not eligible: references, front matter, or fewer than `EMBED_MIN_TOKENS` tokens; the reason is derived from `section_type` and `token_count`). Indexed. |
+
+A CHECK constraint makes the columns consistent: `embedding IS NOT NULL` exactly when `embedding_status = 'embedded'` and `embedding_fingerprint IS NOT NULL`. Chunks written by ingestion (Batch 05) get the default `pending`; replacing a document's chunks deletes the old vectors with the old rows.
+

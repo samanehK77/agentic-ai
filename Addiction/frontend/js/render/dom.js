@@ -53,9 +53,10 @@ export const PROVENANCE = {
   interpretation: { label: "Model interpretation (mock)", icon: "interpretation" },
 };
 
-export function provenanceBadge(kind) {
+// `label` replaces the default text, e.g. real retrieved evidence is not "(MOCK)".
+export function provenanceBadge(kind, label) {
   const info = PROVENANCE[kind];
-  return el("span", { class: `badge prov-${kind}` }, icon(info.icon), el("span", { text: info.label }));
+  return el("span", { class: `badge prov-${kind}` }, icon(info.icon), el("span", { text: label || info.label }));
 }
 
 export function formatTime(iso) {

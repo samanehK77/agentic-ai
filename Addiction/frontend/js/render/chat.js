@@ -25,7 +25,8 @@ export function renderChat(state, actions) {
   input.disabled = disabled;
   send.disabled = disabled;
   input.placeholder = ready ? "Ask a question about this synthetic case…" : "Select a patient to start";
-  status.textContent = state.sending ? "Waiting for a mock reply…" : "";
+  const live = state.auth.status !== "mock" && state.mode !== "gk";
+  status.textContent = state.sending ? (live ? "Searching the documents…" : "Waiting for a mock reply…") : "";
 
   const messages = (state.selectedId && state.messages[state.selectedId]) || [];
 
@@ -50,7 +51,7 @@ export function renderChat(state, actions) {
 
 function emptyHint(ready) {
   return el("p", { class: "chat-empty", text: ready
-    ? "No messages yet. Type a question below; replies are fixed mock text."
+    ? "No messages yet. Type a question below. General Knowledge replies are fixed mock text; RAG and Both show retrieved evidence only (answer generation arrives in Batch 07)."
     : "Select a patient to start a conversation." });
 }
 
@@ -68,6 +69,14 @@ function renderMessage(message, actions) {
     );
   }
   const citations = message.citations || [];
+  if (message.kind === "placeholder") {
+    // Not a model answer: no interpretation badge and no citations. The evidence is in the Evidence Inspector.
+    return el("div", { class: "message message-placeholder" },
+      el("div", { class: "message-head" }, el("span", { class: "chip", text: `Mode: ${message.mode.toUpperCase()}` }),
+        el("span", { class: "chip chip-warn", text: "No answer generated" })),
+      el("p", { class: "message-text", text: message.text }),
+    );
+  }
   return el("div", { class: "message message-assistant prov-interpretation-box" },
     el("div", { class: "message-head" }, provenanceBadge("interpretation"),
       el("span", { class: "chip", text: `Mode: ${message.mode.toUpperCase()}` })),

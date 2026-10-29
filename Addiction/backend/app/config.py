@@ -29,6 +29,9 @@ class Settings:
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = ""
+    retrieval_min_similarity: float | None = None  # default threshold for /api/retrieval/search (None = no threshold)
+    retrieval_rate_limit_per_minute: int = 30
+    retrieval_warmup: bool = False
 
     @property
     def google_configured(self) -> bool:
@@ -51,6 +54,28 @@ def _cookie_secure() -> bool:
     if raw == "true":
         return True
     raise StartupError("COOKIE_SECURE must be 'true' or 'false'.")
+
+
+def _retrieval_threshold() -> float | None:
+    raw = os.environ.get("RETRIEVAL_MIN_SIMILARITY", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        raise StartupError("RETRIEVAL_MIN_SIMILARITY must be a number between 0 and 1.") from None
+    if not 0 <= value <= 1:
+        raise StartupError("RETRIEVAL_MIN_SIMILARITY must be a number between 0 and 1.")
+    return value
+
+
+def _flag(name: str) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if raw in ("", "false"):
+        return False
+    if raw == "true":
+        return True
+    raise StartupError(f"{name} must be 'true' or 'false'.")
 
 
 def load_settings() -> Settings:
@@ -93,4 +118,7 @@ def load_settings() -> Settings:
         google_client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip(),
         google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", "").strip(),
         google_redirect_uri=os.environ.get("GOOGLE_REDIRECT_URI", "").strip(),
+        retrieval_min_similarity=_retrieval_threshold(),
+        retrieval_rate_limit_per_minute=_positive_int("RETRIEVAL_RATE_LIMIT_PER_MINUTE", 30),
+        retrieval_warmup=_flag("RETRIEVAL_WARMUP"),
     )

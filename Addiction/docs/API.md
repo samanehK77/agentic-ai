@@ -1,4 +1,4 @@
-# MindEvidence Lab API (Batch 05)
+# MindEvidence Lab API (Batch 06)
 
 Development-only HTTP API on `http://localhost:8001`. Since Batch 04 it needs a Google sign-in session; it is still plain HTTP and not production-ready (see [API_ACCESS_POLICY.md](API_ACCESS_POLICY.md)).
 All patients are fictional. Interactive documentation: <http://localhost:8001/docs> · machine-readable: <http://localhost:8001/openapi.json>.
@@ -63,7 +63,32 @@ All need a signed-in **admin** (`401` signed out, `403 forbidden` for students).
 | `GET /api/admin/papers/{paper_id}/chunks?section_type=&limit=&offset=` | Chunks in order; `section_type` is `body`, `table_or_figure`, `references` or `front_matter` |
 | `GET /api/admin/chunks/{chunk_id}` | One chunk, e.g. `who-mhgap-guideline-2023-c0042` |
 
+Students get chunk text only through the search endpoint below, and only for the (at most 20) chunks a search returns.
+
 A chunk has `chunk_id`, `paper_id`, `ordinal`, `text`, `token_count`, `page_start`, `page_end`, `section_title` (null when unknown), `section_type`, `possible_injection` (a heuristic marker for review, not a security control) and `created_at`. Unknown ids are `404`; malformed ids, unknown `section_type` values or a bad `limit` are `422`.
+
+### Semantic search (Batch 06)
+
+`POST /api/retrieval/search` finds the research chunks most similar to a question (exact cosine search with pgvector). It needs a signed-in user and the `X-CSRF-Token` header (it is a POST). It returns **evidence only**: answer generation does not exist until Batch 07. See `docs/RETRIEVAL.md`.
+
+Body: `query` (1 to 1000 characters after trimming), `top_k` (1 to 20, default 5; other values are `422`, never clamped), `paper_id` (optional filter; `404` for an unknown id, `422` for a malformed one), `min_similarity` (optional, 0 to 1; default from `RETRIEVAL_MIN_SIMILARITY`, which is none).
+
+Response: `request_id`, `model` (fingerprint of the embedding model, revision, dimension and normalization), `top_k`, `latency_ms`, `no_evidence` (true when nothing passed the threshold or matched) and `results`, best first:
+`chunk_id`, `paper_id`, `title`, `section_title` (null when unknown), `section_type` (`body` or `table_or_figure`), `page_start`, `page_end`, `text` (at most 250 tokens, **untrusted data**), `similarity` and `possible_injection`. `similarity = 1 - cosine distance`: a similarity score, not a probability or a confidence. No file names, paths or hashes are returned.
+
+Only embedded chunks of type `body` or `table_or_figure` are searched; references, front matter, tiny fragments and chunks not embedded yet never appear. All filters are applied in SQL before the `LIMIT`, so a `paper_id` filter still returns `top_k` results from that paper.
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 401 / 403 | `unauthorized` / `csrf_failed` | not signed in / missing or wrong CSRF header |
+| 404 | `not_found` | unknown `paper_id` |
+| 422 | `validation_error` | bad `query`, `top_k`, `min_similarity` or `paper_id` |
+| 429 | `rate_limited` | more than `RETRIEVAL_RATE_LIMIT_PER_MINUTE` (default 30) searches per minute for this user; see the `Retry-After` header |
+| 503 | `retrieval_unavailable` | torch / sentence-transformers or the model files are not installed |
+| 503 | `retrieval_not_ready` | no chunk is embedded yet: run `python -m app.embedding` |
+| 503 | `index_incompatible` | stored vectors were made by a different model or settings: run `python -m app.embedding --force` |
+
+The query text is never logged (only request id, user id, `top_k`, result count and latency).
 
 Chat messages cannot be created yet; no endpoint writes them until Batches 07 and 08.
 
@@ -155,6 +180,16 @@ Send your own request id and see it echoed:
 (Invoke-WebRequest http://localhost:8001/api/health -Headers @{ "X-Request-ID" = "my-test-001" }).Headers["X-Request-ID"]
 ```
 
+Search the documents (needs the cookie and CSRF values from the examples above, and an embedded corpus):
+
+```powershell
+$headers = @{ Cookie = $cookie; "X-CSRF-Token" = $me.csrf_token }
+$body = '{"query":"Which medications are used to treat opioid addiction?","top_k":3}'
+$result = Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/retrieval/search -Headers $headers -ContentType "application/json" -Body $body
+$result.results | Select-Object chunk_id, similarity, title
+$result.no_evidence
+```
+
 ## Response shapes
 
 The full schemas are in `/openapi.json`. Main ones:
@@ -169,3 +204,4 @@ The full schemas are in `/openapi.json`. Main ones:
 - `MeOut`: `id`, `email`, `display_name`, `role` (`student` or `admin`), `csrf_token`. The Google subject id and Google tokens are never returned or stored.
 
 The OpenAPI document declares the `me_session` cookie as the security scheme of every protected route and lists the `X-CSRF-Token` header parameter.
+- `SearchRequest` / `SearchResponse` / `SearchHit`: see the semantic search section above.

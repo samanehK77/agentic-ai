@@ -56,3 +56,20 @@ export function patientDetail(profile, historyItems) {
       : { status: "No observations recorded", note: "" },
   };
 }
+
+// One hit of POST /api/retrieval/search -> the shape the Evidence Inspector uses.
+// citation_id is the real chunk id, so a citation can only ever point to a retrieved chunk.
+export function evidenceChunk(hit) {
+  const pages = hit.page_start === hit.page_end ? String(hit.page_start) : `${hit.page_start}-${hit.page_end}`;
+  return {
+    citation_id: hit.chunk_id,
+    document: hit.title,
+    section: hit.section_title || "(no section title)",
+    page: pages,
+    text: hit.text,
+    score: hit.similarity, // cosine similarity: a score, not a probability
+    section_type: hit.section_type,
+    possible_injection: hit.possible_injection === true,
+    real: true,
+  };
+}

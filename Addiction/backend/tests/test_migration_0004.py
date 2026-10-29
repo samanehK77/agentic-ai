@@ -43,12 +43,19 @@ def test_0004_applies_to_existing_rows_and_downgrades_cleanly():
         engine.dispose()
 
 
-def test_no_vector_column_or_extension_was_added(engine):
-    with engine.connect() as connection:
-        assert connection.scalar(text("SELECT count(*) FROM pg_extension WHERE extname = 'vector'")) == 0
-        columns = connection.execute(text(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = 'paper_chunks'")).scalars().all()
-    assert not any("embed" in c or "vector" in c for c in columns)
+def test_0004_itself_adds_no_vector_column_or_extension():
+    """Batch 05 stops at 0004: embeddings arrive with migration 0005."""
+    url = recreate_database("test_migration4b")
+    engine = create_engine(url)
+    try:
+        command.upgrade(alembic_config(url), "0004")
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM pg_extension WHERE extname = 'vector'")) == 0
+            columns = connection.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'paper_chunks'")).scalars().all()
+        assert not any("embed" in c or "vector" in c for c in columns)
+    finally:
+        engine.dispose()
 
 
 PAPER = "test-mig-paper"

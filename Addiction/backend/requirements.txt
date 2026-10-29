@@ -11,3 +11,4 @@ requests>=2.31,<3
 cryptography>=42
 PyMuPDF>=1.24
 tokenizers>=0.19
+pgvector>=0.4,<1

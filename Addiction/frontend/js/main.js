@@ -86,7 +86,9 @@ async function sendQuestion(text) {
   try {
     const { reply, chunks, events } = await api.askQuestion({ patientId, mode, text });
     if (mine !== epoch) return;
-    addMessage(patientId, { role: "assistant", text: reply.text, citations: reply.citations, mode });
+    addMessage(patientId, {
+      role: "assistant", text: reply.text, citations: reply.citations, mode, kind: reply.placeholder ? "placeholder" : undefined,
+    });
     const patch = { sending: false, timeline: [...state.timeline, ...events] };
     if (mode !== "gk") {
       patch.evidence = { status: chunks.length ? "ready" : "no-evidence", chunks, error: null };
@@ -95,6 +97,7 @@ async function sendQuestion(text) {
     setState(patch);
   } catch (err) {
     if (mine !== epoch) return;
+    if (err instanceof api.AuthError) return showSignedOut();
     addMessage(patientId, { role: "assistant", kind: "error", text: errorText(err), mode });
     setState({
       sending: false,
@@ -104,6 +107,9 @@ async function sendQuestion(text) {
 }
 
 async function openCitation(id) {
+  // Real retrieved chunks are already in the evidence list: open them without any request.
+  const retrieved = state.evidence.chunks.find((c) => c.citation_id === id && c.real);
+  if (retrieved) return setState({ activeChunk: { status: "ready", data: retrieved, error: null } });
   const mine = epoch;
   setState({ activeChunk: { status: "loading", data: null, error: null } });
   try {

@@ -1,6 +1,6 @@
 # Document ingestion (Batch 05)
 
-How the research PDFs become cleaned, chunked text in PostgreSQL. There are **no embeddings, no LLM and no vector column** yet (Batches 06 and 07). Ingestion is a **command-line job**, not an HTTP endpoint.
+How the research PDFs become cleaned, chunked text in PostgreSQL. Ingestion itself creates **no embeddings and no LLM output**: embeddings are a separate step (`python -m app.embedding`, see `docs/RETRIEVAL.md`, Batch 06); answers come in Batch 07. Ingestion is a **command-line job**, not an HTTP endpoint.
 
 The PDFs are copyrighted: they live only in `data/papers/` (git-ignored). Never commit them. Nothing in the reports, run records or logs contains document text.
 

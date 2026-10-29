@@ -1,4 +1,4 @@
-# Frontend integration (status after Batch 04)
+# Frontend integration (status after Batch 06)
 
 The UI only talks to `frontend/js/api.js`. Since Batch 03 the **patient list and patient detail come from the API**; chat answers and citation chunks are still mock until Batches 05-07.
 
@@ -69,3 +69,18 @@ The seed text supersedes the Batch 01 mock text; some names, ages and details di
 | *Sign out* | `POST /api/auth/logout` with the CSRF header, then the signed-out state |
 | Any later 401 (expired session) | Signed-out state |
 | Avatars | None: no external images are loaded |
+
+## Retrieval (Batch 06)
+
+| `api.js` function | Source now | Endpoint |
+|-------------------|------------|----------|
+| `askQuestion(...)` in modes `rag` / `both` (not `?source=mock`) | **API** | `POST /api/retrieval/search` (cookie + `X-CSRF-Token`) |
+| `askQuestion(...)` in mode `gk`, or any mode with `?source=mock` | mock (labelled) | none |
+| `getChunk(...)` | not used for real chunks (they are already in the evidence list); mock only | none |
+
+- **No fabricated citations.** Answer generation arrives in Batch 07, so in `rag` and `both` the reply is the placeholder "Answer generation arrives in Batch 07. Showing retrieved evidence only." with an empty citation list and a "No answer generated" chip. Only the Evidence Inspector shows chunks, and every chunk shown there was returned by a search (its `citation_id` is the real `chunk_id`).
+- **Mapping (`adapters.evidenceChunk`)**: `chunk_id` -> `citation_id`, `title` -> `document`, `section_title` (or "(no section title)") -> `section`, `page_start`-`page_end` -> `page`, `text`, `similarity` -> `score` (shown as "cosine similarity 0.xx"), plus `section_type`, `possible_injection` and `real: true`.
+- **Warning badge**: a chunk with `possible_injection` shows "Warning: possible instruction-like text" in the list and in the excerpt. All text is rendered with `textContent`; retrieved text is untrusted data.
+- **Timeline**: a real "Chunks retrieved" event with the result count and latency, and "Answer generation: not implemented yet".
+- **States**: zero results (or none above the threshold) -> the existing no-evidence state; 401 -> signed-out state; 429 and 503 (`retrieval_unavailable`, `retrieval_not_ready`, `index_incompatible`) -> the existing error state with the API's message; `?state=` demos and `?source=mock` still work; there is no silent fallback to mock data.
+

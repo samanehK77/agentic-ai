@@ -10,8 +10,8 @@ Living log of where the project stands. Update it at the end of every batch.
 | 02 | PostgreSQL data model and seed | Done |
 | 03 | FastAPI backend | Done |
 | 04 | Google sign-in | Done (real login tested by the user) |
-| 05 | Document ingestion | Done (committed locally; not pushed) |
-| 06 | pgvector retrieval | Not started |
+| 05 | Document ingestion | Done |
+| 06 | pgvector retrieval | Done (committed locally; not pushed) |
 | 07 | DeepSeek answers with citations | Not started |
 | 08 | LangGraph orchestration | Not started |
 | 09 | Observability, audit, and Gmail reports | Not started |
@@ -26,6 +26,8 @@ Living log of where the project stands. Update it at the end of every batch.
 - Batch 03: FastAPI API on port 8001 (health, patients, history, papers, chat sessions, messages), migration 0002 (`papers`, `chat_sessions`, `chat_messages`), papers seed, standard error format and request ids, CORS, `APP_ENV=development` guard, `docs/API.md`, `docs/API_ACCESS_POLICY.md`; frontend patient list and detail now load from the API. Committed.
 
 - Batch 05: PDF ingestion pipeline (`python -m app.ingestion`): five registered PDFs extracted with PyMuPDF, cleaned, chunked to about 220 tokens and stored (migration 0004: ingestion fields on `papers`, `paper_chunks`, `ingestion_runs`); admin-only read endpoints; `docs/INGESTION.md`. 488 tests passing at the last full run.
+
+- Batch 06: embeddings with all-MiniLM-L6-v2 (migration 0005, pgvector, exact search, no ANN index), `python -m app.embedding`, `POST /api/retrieval/search`, real evidence in the Evidence Inspector, `python -m app.eval_retrieval`, `docs/RETRIEVAL.md`. 585 tests (584 passed with torch installed, 1 skipped).
 
 ## Open questions / decisions
 - Resolved in Batch 05: the Cochrane review named in SPEC.md is now the fifth document; the psychosocial-interventions review stays as an additional document.
@@ -94,7 +96,25 @@ All five documents `ingested`, none `failed` or `needs_ocr`; 2,579 chunks in tot
 
 Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_injection`.
 
+## Batch 06 decisions
+- **Embedding model and fingerprint:** `sentence-transformers/all-MiniLM-L6-v2` at the revision pinned in Batch 05 (`1110a243...`), 384 dimensions, L2-normalized, CPU only, loaded offline; the weights file is checked against the pinned SHA-256 at load. Every vector stores its fingerprint; search refuses (503 `index_incompatible`) if any embedded chunk has another one.
+- **Eligibility:** only `body` / `table_or_figure` chunks with at least 20 tokens (`EMBED_MIN_TOKENS`) are embedded; references, front matter and tiny fragments are `skipped` (no vector). Re-evaluated at every run; re-ingested chunks come back as `pending`.
+- **Exact search, no ANN index** (about 2,000 vectors; approximate indexes can return fewer than k rows with a WHERE filter). All filters are in the WHERE clause before `ORDER BY ... LIMIT`. Reconsider HNSW above about 50,000 vectors, evaluated against exact results (`docs/RETRIEVAL.md`).
+- **torch is optional:** `requirements-embeddings.txt` is separate; the API and the tests run without it (search answers 503 `retrieval_unavailable`). The model loads lazily once (optional warm-up `RETRIEVAL_WARMUP`); the route is a sync function so FastAPI runs it in its thread pool.
+- **Policy decision:** signed-in students receive the text of the chunks a search returns (at most 20 of at most 250 tokens, rate limited to 30 searches per minute per user by default); admin routes are unchanged (`docs/API_ACCESS_POLICY.md`). Query text is never logged.
+- **No fabricated citations:** in RAG and Both mode the frontend shows the explicit placeholder "Answer generation arrives in Batch 07. Showing retrieved evidence only." with no citations; a citation id is always a real `chunk_id`.
+- Correction to a note in the Batch 06 prompt: Batch 05 had already been pushed (`64ee02f`) before Batch 06 started.
+- Changes to older tests (not weakened): the Batch 05 "no vector extension" test now checks migration 0004 on its own; table/vocabulary/OpenAPI lists updated.
+
+## Batch 06 results on this machine (real run, 2026-10-29)
+- **Embedding:** 2,002 chunks embedded in 30.7 s (63 batches of 32); 577 skipped: 287 references, 16 front matter, 274 too short. Second run: "0 pending", 0.1 s, nothing changed. 0 failed.
+- **Evaluation (smoke-level, 15 in-domain + 4 out-of-domain queries, keyword labels, NOT a benchmark):** Recall@1 0.80, Recall@3 0.93, Recall@5 0.93, MRR 0.87. Top-1 cosine similarity: in-domain min 0.63 / median 0.71 / max 0.79; out-of-domain min 0.19 / median 0.23 / max 0.28 (the two ranges did not overlap on these queries).
+- **Weakest query:** "behavioral couples therapy" found nothing relevant in the top 10: the three matching chunks of the psychosocial review exist and rank 2nd, 5th and 20th when the search is limited to that paper, but chunks of other documents outrank them across the whole corpus. Labels were not changed to fit this.
+- **Suspicious:** 14 of the 95 chunks in the top 5 of all queries have fewer than 40 tokens; one 27-token table chunk of the psychosocial review (`...-c0050`) shows up for three different queries. Out-of-domain queries still return chunks (similarity 0.18 to 0.28): a threshold is needed in Batch 07 (the gap above suggests somewhere around 0.4 to 0.55, to be checked with more queries).
+- **Browser check:** the signed-out state, `?source=mock` and the rendering of real chunks (a synthetic hit with an `<img onerror>` payload showed as plain text, the warning badge and the "retrieved" evidence label appear, the placeholder reply has no citations) were verified in the browser pane. A real search from the page was **not** verified end to end because it needs a Google sign-in; the endpoint itself is covered by 44 API tests with a fake embedder and by the evaluation run through the same search code.
+
 ## Known issues
+- Retrieval: short table/flowchart fragments from ingestion still rank high for some queries; no reranking or keyword/hybrid search; the evaluation set is tiny.
 - Ingestion heuristics are imperfect (see `docs/INGESTION.md`): the Intervention Guide's flowcharts produce many tiny fragments, some Cochrane running-header text survives as short chunks, and section titles can be noisy.
 - The symbolic-link rejection test is skipped on this Windows machine because creating symlinks needs extra permission; the check itself is in `resolve_pdf`.
 - No rate limiting; plain HTTP; `/docs` is open in development; used OAuth states are remembered per process only (see `docs/API_ACCESS_POLICY.md`).
@@ -110,4 +130,4 @@ Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_in
 4. `.env` must contain the database settings, `APP_ENV=development`, `SESSION_SECRET` (32+ characters) and the Google variables from `docs/GOOGLE_AUTH_SETUP.md` (git-ignored, never committed). Always open `http://localhost:8000` (not 127.0.0.1).
 
 ## Next step
-Batch 06: pgvector retrieval (embeddings for the stored chunks, cosine search, and a retrieval-quality check).
+Batch 07: DeepSeek answers with citations (backend only, behind a provider interface; use a similarity threshold and keep citations pointing only to retrieved chunks).
