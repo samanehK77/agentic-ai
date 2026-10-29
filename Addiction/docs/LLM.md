@@ -82,9 +82,26 @@ Retries (exponential backoff with jitter) only for timeouts, connection errors, 
 
 Logs contain only the request id, user id, mode, token counts, latency and outcome. **Never** the question, chunk text, answer, prompt or key.
 
+## Local models (Ollama)
+
+The client speaks the OpenAI-compatible chat-completions format, which Ollama also offers. To use a model on your own computer set, in `.env`:
+
+```
+DEEPSEEK_BASE_URL=http://localhost:11434/v1
+DEEPSEEK_MODEL=qwen3.5:latest
+DEEPSEEK_API_KEY=
+LLM_THINKING=omit
+LLM_TIMEOUT_SECONDS=180
+LLM_MAX_OUTPUT_TOKENS=2000
+```
+
+(The variable names keep the `DEEPSEEK_` prefix for historical reasons.) Plain `http://` is accepted **only** for `localhost`, `127.0.0.1` and `::1`; every other address must be https. For such a local address no API key is needed and no `Authorization` header is sent; if a key is set it is still sent. `LLM_THINKING=omit` stops the client from sending DeepSeek's `thinking` parameter. Restart the API after changing `.env`.
+
+What to expect from small local models: they more often return invalid JSON, change quotes or use unknown aliases. The validation layer catches these (you will see more `unverified` citations and unsupported claims, and sometimes `502 llm_bad_output` after the one repair attempt), but the answers can still be wrong. Thinking models may spend their output budget before answering: if answers come back empty or cut off, raise `LLM_MAX_OUTPUT_TOKENS`. Vision models (for example `llava`) and very small models are not suitable. Local models are slower: raise `LLM_TIMEOUT_SECONDS`. These points have not been measured on this project's documents.
+
 ## Privacy
 
-**Only synthetic patient data and public documents are sent to the external provider** (DeepSeek): the selected fictional patient's record, the retrieved document chunks, the last four conversation turns and the question. The users' questions are also sent. **Real patient data must never be used with this system or this provider.** Do not type personal information into the chat.
+**With a local model server (`DEEPSEEK_BASE_URL` on localhost) nothing leaves your computer.** With DeepSeek, **only synthetic patient data and public documents are sent to the external provider**: the selected fictional patient's record, the retrieved document chunks, the last four conversation turns and the question. The users' questions are also sent. **Real patient data must never be used with this system or this provider.** Do not type personal information into the chat.
 
 ## Cost, rate limits and limits
 

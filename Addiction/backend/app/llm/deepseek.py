@@ -52,7 +52,9 @@ class DeepSeekClient:
             payload["response_format"] = {"type": "json_object"}
         if settings.thinking == "disabled":
             payload["thinking"] = {"type": "disabled"}
-        headers = {"Authorization": f"Bearer {settings.api_key}", "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if settings.api_key:  # a local model server needs no key
+            headers["Authorization"] = f"Bearer {settings.api_key}"
 
         attempts = settings.max_retries + 1
         last_failure = "unavailable"

@@ -1,13 +1,27 @@
 """LLM settings from environment variables. The key is read here and nowhere else; it is never logged or returned."""
 import os
 from dataclasses import dataclass
+from urllib.parse import urlsplit
+
+import db.config  # noqa: F401  (loads the project's .env without overriding real environment variables)
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
 
 
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
 class LLMConfigError(ValueError):
     """Invalid LLM configuration (the app refuses to start)."""
+
+
+def is_local_url(url: str) -> bool:
+    """True for http(s) addresses on this machine only (a local model server such as Ollama)."""
+    try:
+        return urlsplit(url).hostname in LOCAL_HOSTS
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -23,8 +37,13 @@ class LLMSettings:
     context_token_budget: int = 6000
 
     @property
+    def local(self) -> bool:
+        """A model server on this machine (for example Ollama): nothing leaves the computer and no key is needed."""
+        return is_local_url(self.base_url)
+
+    @property
     def configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.api_key) or self.local
 
 
 def _number(name: str, default: float, low: float, high: float, integer: bool = False):
@@ -42,8 +61,9 @@ def _number(name: str, default: float, low: float, high: float, integer: bool = 
 
 def load_llm_settings() -> LLMSettings:
     base_url = os.environ.get("DEEPSEEK_BASE_URL", "").strip() or DEFAULT_BASE_URL
-    if not base_url.startswith("https://"):
-        raise LLMConfigError("DEEPSEEK_BASE_URL must start with https://.")
+    # Remote providers must use https. Plain http is accepted only for this machine (a local model server).
+    if not (base_url.startswith("https://") or (base_url.startswith("http://") and is_local_url(base_url))):
+        raise LLMConfigError("DEEPSEEK_BASE_URL must start with https:// (http:// is allowed only for localhost or 127.0.0.1).")
     thinking = os.environ.get("LLM_THINKING", "").strip().lower() or "disabled"
     if thinking not in ("disabled", "omit"):
         raise LLMConfigError("LLM_THINKING must be 'disabled' or 'omit'.")
