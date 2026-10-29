@@ -1,4 +1,4 @@
-# MindEvidence Lab API (Batch 04)
+# MindEvidence Lab API (Batch 05)
 
 Development-only HTTP API on `http://localhost:8001`. Since Batch 04 it needs a Google sign-in session; it is still plain HTTP and not production-ready (see [API_ACCESS_POLICY.md](API_ACCESS_POLICY.md)).
 All patients are fictional. Interactive documentation: <http://localhost:8001/docs> · machine-readable: <http://localhost:8001/openapi.json>.
@@ -31,7 +31,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 - **Session cookie.** Signing in with Google sets the HttpOnly cookie `me_session` (SameSite=Lax, host-only, `Secure` only if `COOKIE_SECURE=true`). Every `/api/*` route needs it except `/api/health` and `/api/auth/*`. Without a valid cookie the answer is `401` with code `unauthorized`. A login ends after `SESSION_IDLE_MINUTES` without use (default 30) or `SESSION_MAX_HOURS` in total (default 8), or when you sign out.
 - **CSRF.** `POST`, `PUT`, `PATCH` and `DELETE` must send the header `X-CSRF-Token` with the value from `GET /api/auth/me`; a missing or wrong value is `403` `csrf_failed`. A request whose `Origin` header is present and not in `CORS_ORIGINS` is also `403` `csrf_failed`.
 - **Ownership.** Chat sessions belong to the user who created them. You can list, read and see messages of your own sessions only. Another user's session returns `404 not_found`, the same answer as a session that does not exist, so its existence is not revealed (decision for Batch 04). Sessions created before Batch 04 have no owner and are invisible to everyone.
-- **Roles.** `student` (default) and `admin` (verified email listed in `ADMIN_EMAILS`). A reusable `require_role` dependency returns `403 forbidden` for the wrong role; no admin-only route exists yet.
+- **Roles.** `student` (default) and `admin` (verified email listed in `ADMIN_EMAILS`). The `require_role` dependency returns `403 forbidden` for the wrong role. Since Batch 05 the `/api/admin/*` routes below are admin-only.
 - All `/api/auth/*` responses carry `Cache-Control: no-store`.
 
 ## Endpoints
@@ -51,6 +51,19 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 | `POST /api/sessions` | Create a chat session owned by you; 201 with a `Location` header; needs `X-CSRF-Token` |
 | `GET /api/sessions/{session_id}` | One of your chat sessions (404 for anyone else's) |
 | `GET /api/sessions/{session_id}/messages?limit=&offset=` | Messages of your session, oldest first (empty list for a new session; 404 for anyone else's) |
+
+### Administrator endpoints (Batch 05, read-only)
+
+All need a signed-in **admin** (`401` signed out, `403 forbidden` for students). They show the result of the command-line ingestion (`docs/INGESTION.md`); **no endpoint starts an ingestion**. Responses never contain file names, paths or file hashes. The chunk endpoints return the **full chunk text** (copyrighted source material), so they are for administrators only; there is deliberately no student-facing chunk endpoint (that comes with citation rules in Batch 07).
+
+| Method and path | Description |
+|-----------------|-------------|
+| `GET /api/admin/papers?limit=&offset=` | Every paper with `ingest_status` (`not_ingested`, `ingested`, `needs_ocr`, `failed`), `ingest_note`, `page_count`, `low_text_page_count`, `chunk_count`, `chunking_version`, `ingested_at`, `metadata_source` (`project_list` or `document_text`), `doi` |
+| `GET /api/admin/papers/{paper_id}` | The same plus `low_text_pages` (page numbers) and `chunks_by_section_type` |
+| `GET /api/admin/papers/{paper_id}/chunks?section_type=&limit=&offset=` | Chunks in order; `section_type` is `body`, `table_or_figure`, `references` or `front_matter` |
+| `GET /api/admin/chunks/{chunk_id}` | One chunk, e.g. `who-mhgap-guideline-2023-c0042` |
+
+A chunk has `chunk_id`, `paper_id`, `ordinal`, `text`, `token_count`, `page_start`, `page_end`, `section_title` (null when unknown), `section_type`, `possible_injection` (a heuristic marker for review, not a security control) and `created_at`. Unknown ids are `404`; malformed ids, unknown `section_type` values or a bad `limit` are `422`.
 
 Chat messages cannot be created yet; no endpoint writes them until Batches 07 and 08.
 
@@ -152,6 +165,7 @@ The full schemas are in `/openapi.json`. Main ones:
 - `PaperOut`: `paper_id`, `title`, `document_type`, `publisher`, `publication_year`, `source_note`, `ingest_status`, `created_at`. `publisher` and `publication_year` are the text `unknown` when not recorded.
 - `SessionOut`: `session_id`, `patient_id`, `title`, `owner_id` (the signed-in user's id), `created_at`.
 - `MessageOut`: `message_id`, `session_id`, `role`, `mode`, `content`, `created_at`.
+- `AdminPaperOut` / `AdminPaperDetail` / `ChunkOut`: see the administrator table above.
 - `MeOut`: `id`, `email`, `display_name`, `role` (`student` or `admin`), `csrf_token`. The Google subject id and Google tokens are never returned or stored.
 
 The OpenAPI document declares the `me_session` cookie as the security scheme of every protected route and lists the `X-CSRF-Token` header parameter.

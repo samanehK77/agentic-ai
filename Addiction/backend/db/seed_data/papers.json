@@ -1,34 +1,57 @@
 [
   {
-    "paper_id": "who-mhgap-guideline-2023",
-    "title": "mhGAP guideline for mental, neurological and substance use disorders",
-    "document_type": "guideline",
-    "publisher": "WHO",
-    "publication_year": "2023",
-    "source_note": "Metadata taken from the project's corpus list, not checked against the document itself."
+    "paper_id": "cochrane-combined-interventions-alcohol-use-disorder-2025",
+    "title": "Combined pharmacological and psychosocial interventions for alcohol use disorder (Review)",
+    "document_type": "review",
+    "publisher": "John Wiley & Sons, Ltd. (Cochrane Library)",
+    "publication_year": "2025",
+    "doi": "10.1002/14651858.CD015673.pub2",
+    "metadata_source": "document_text",
+    "file_name": "Combined pharmacological and psychosocial interventions for alcohol use disorder (Review).pdf",
+    "source_note": "Cochrane Database of Systematic Reviews 2025, Issue 3, Art. No. CD015673. Publisher, year and DOI as printed on the first page of the document."
   },
   {
     "paper_id": "nida-principles-of-drug-addiction-treatment",
-    "title": "Principles of Drug Addiction Treatment: A Research-Based Guide",
+    "title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
     "document_type": "guide",
-    "publisher": "NIDA",
-    "publication_year": "unknown",
-    "source_note": "Metadata taken from the project's corpus list, not checked against the document itself. Edition and year not recorded."
+    "publisher": "National Institute on Drug Abuse",
+    "publication_year": "2018",
+    "doi": null,
+    "metadata_source": "document_text",
+    "file_name": "Principles of Drug Addiction Treatment A Research Based Guide.pdf",
+    "source_note": "Third Edition, first published 2014 and marked 'Revised January 2018' in the document; the revision year is recorded. Publisher name is the PDF's author field and is not otherwise printed in the text."
+  },
+  {
+    "paper_id": "psychosocial-interventions-for-alcohol-use-disorder-review",
+    "title": "Psychosocial Interventions for Alcohol Use Disorder: A Review of Efficacy, Mechanisms, and Clinical Implications",
+    "document_type": "review",
+    "publisher": "Med Sci Monit (journal)",
+    "publication_year": "2026",
+    "doi": "10.12659/MSM.952777",
+    "metadata_source": "document_text",
+    "file_name": "Psychosocial Interventions for Alcohol Use Disorder A Review of Efficacy Mechanisms and Clinical Implications.pdf",
+    "source_note": "Published 2026.09.09 in Med Sci Monit 2026; 32: e952777. The journal is named in the document; the publishing company is not stated in the text."
+  },
+  {
+    "paper_id": "who-mhgap-guideline-2023",
+    "title": "mhGAP guideline for mental, neurological and substance use disorders",
+    "document_type": "guideline",
+    "publisher": "World Health Organization",
+    "publication_year": "2023",
+    "doi": null,
+    "metadata_source": "document_text",
+    "file_name": "who-mhgap-guideline-2023.pdf",
+    "source_note": "Publisher and year from the copyright line on the imprint page ('World Health Organization 2023'). No DOI is printed on the pages checked."
   },
   {
     "paper_id": "who-mhgap-intervention-guide-v2",
     "title": "mhGAP Intervention Guide, Version 2.0",
     "document_type": "guide",
-    "publisher": "WHO",
-    "publication_year": "unknown",
-    "source_note": "Metadata taken from the project's corpus list, not checked against the document itself. Year not recorded."
-  },
-  {
-    "paper_id": "psychosocial-interventions-for-alcohol-use-disorder-review",
-    "title": "Psychosocial Interventions for Alcohol Use Disorder: A Review of Efficacy, Mechanisms and Clinical Implications",
-    "document_type": "review",
-    "publisher": "unknown",
-    "publication_year": "unknown",
-    "source_note": "Metadata taken from the project's corpus list, not checked against the document itself. Publisher and year not recorded. This is not the Cochrane review named in the project spec."
+    "publisher": "World Health Organization",
+    "publication_year": "2016",
+    "doi": null,
+    "metadata_source": "document_text",
+    "file_name": "who-mhgap-intervention-guide-v2.pdf",
+    "source_note": "Publisher and year from the copyright line on the imprint page ('World Health Organization 2016'). No DOI is printed on the pages checked."
   }
 ]

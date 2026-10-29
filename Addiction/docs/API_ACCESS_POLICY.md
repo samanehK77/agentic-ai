@@ -1,4 +1,4 @@
-# API access policy (Batch 04)
+# API access policy (Batch 05)
 
 ## Status: authenticated, but development only
 
@@ -15,8 +15,13 @@ Since Batch 04 the API requires a Google sign-in session. It is still a **local 
 | CSRF | State-changing requests need the `X-CSRF-Token` header (constant-time comparison) and an allowed `Origin` if one is sent |
 | CORS | Explicit origins (`CORS_ORIGINS`, default `http://localhost:8000`), credentials allowed, methods `GET`/`POST`/`OPTIONS`, no wildcard |
 | Chat sessions | Owned by the creating user. Other users get `404 not_found` (we do not reveal that the session exists). Sessions from before Batch 04 have no owner and are visible to nobody |
-| Roles | `student` / `admin` (admin only for verified emails in `ADMIN_EMAILS`, recomputed at each login). `require_role` exists for future admin routes; none exist yet |
+| Roles | `student` / `admin` (admin only for verified emails in `ADMIN_EMAILS`, recomputed at each login). `require_role("admin")` protects the `/api/admin/*` routes (401 signed out, 403 for students) |
+| Ingestion results | `/api/admin/papers*` and `/api/admin/chunks/*` are read-only and admin-only. They return the **full chunk text** (copyrighted source material), so only administrators can see it. Students see paper metadata only (`GET /api/papers`) and get no chunk endpoint until Batch 07 defines citation rules |
 | Logs | Auth events log the event, a reason code, the request id and the user id; never tokens, codes, secrets or email addresses |
+
+## Why ingestion is not an HTTP endpoint
+
+Ingestion is a command-line job (`python -m app.ingestion`, see `docs/INGESTION.md`) and no HTTP route starts, uploads or re-runs it. This keeps the attack surface small: no file upload, no file names or paths taken from a request, no long-running work inside a request handler, and no way for a compromised admin session to point the server at other files. Only PDFs registered in `papers.json`, as plain files directly inside `data/papers/`, can be read. The admin endpoints never return file names, paths or file hashes.
 
 ## What is still not protected
 

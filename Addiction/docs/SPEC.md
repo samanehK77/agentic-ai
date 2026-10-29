@@ -20,7 +20,7 @@ An educational, RAG-based research assistant for psychology students who study a
 - Backend: Python, FastAPI, Pydantic v2, SQLAlchemy 2.x, Alembic.
 - Database: PostgreSQL with pgvector.
 - Authentication: Google OAuth 2.0 / OpenID Connect with a backend session cookie.
-- Retrieval: PDF ingestion (PyMuPDF), chunks of about 400-700 tokens, sentence-transformers/all-MiniLM-L6-v2 embeddings, cosine search.
+- Retrieval: PDF ingestion (PyMuPDF), chunks of about 220 tokens (at most 250, counted with the model's own tokenizer), sentence-transformers/all-MiniLM-L6-v2 embeddings, cosine search. Deviation from the original "400-700 tokens": that model truncates its input at 256 word pieces, so longer chunks would silently lose their tail (see `docs/INGESTION.md`).
 - LLM: the DeepSeek API, called only from the backend, behind a provider interface.
 - Orchestration: a LangGraph workflow with typed state.
 - Observability: structured audit events in PostgreSQL, linked by correlation IDs.

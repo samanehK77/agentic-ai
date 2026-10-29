@@ -10,6 +10,7 @@ TABLES = {
     "patients", "patient_history_events", "substance_or_behavior_use",
     "triggers_and_risk_factors", "previous_interventions", "progress_observations",
     "papers", "chat_sessions", "chat_messages", "users", "auth_sessions",
+    "paper_chunks", "ingestion_runs",
 }
 
 
@@ -60,6 +61,10 @@ def test_vocabulary_in_models_matches_check_constraints(engine):
         ("progress_observations", "ck_progress_observations_use_status_values"): "progress_status",
         ("papers", "ck_papers_document_type_values"): "document_type",
         ("papers", "ck_papers_ingest_status_values"): "ingest_status",
+        ("papers", "ck_papers_metadata_source_values"): "metadata_source",
+        ("paper_chunks", "ck_paper_chunks_section_type_values"): "section_type",
+        ("ingestion_runs", "ck_ingestion_runs_status_values"): "run_status",
+        ("users", "ck_users_role_values"): "user_role",
         ("chat_messages", "ck_chat_messages_role_values"): "message_role",
         ("chat_messages", "ck_chat_messages_mode_values"): "chat_mode",
     }

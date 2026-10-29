@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 
 PAPER_IDS = [
+    "cochrane-combined-interventions-alcohol-use-disorder-2025",
     "nida-principles-of-drug-addiction-treatment",
     "psychosocial-interventions-for-alcohol-use-disorder-review",
     "who-mhgap-guideline-2023",
@@ -15,15 +16,16 @@ PAPER_IDS = [
 
 # ---------------------------------------------------------------- papers
 
-def test_papers_are_the_seeded_four(client):
+def test_papers_are_the_seeded_five(client):
     body = client.get("/api/papers").json()
     assert [p["paper_id"] for p in body["items"]] == PAPER_IDS
-    assert body["total"] == 4
+    assert body["total"] == 5
     assert all(p["ingest_status"] == "not_ingested" for p in body["items"])
     assert all(re.fullmatch(r"unknown|\d{4}", p["publication_year"]) for p in body["items"])
     by_id = {p["paper_id"]: p for p in body["items"]}
     assert by_id["who-mhgap-guideline-2023"]["publication_year"] == "2023"
-    assert by_id["psychosocial-interventions-for-alcohol-use-disorder-review"]["publisher"] == "unknown"
+    assert by_id["cochrane-combined-interventions-alcohol-use-disorder-2025"]["publication_year"] == "2025"
+    assert by_id["who-mhgap-intervention-guide-v2"]["publisher"] == "World Health Organization"
 
 
 def test_papers_expose_no_file_paths_or_text(client):

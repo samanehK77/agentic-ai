@@ -9,8 +9,8 @@ Living log of where the project stands. Update it at the end of every batch.
 | 01 | Frontend with mock data | Done |
 | 02 | PostgreSQL data model and seed | Done |
 | 03 | FastAPI backend | Done |
-| 04 | Google sign-in | Done (real Google login not yet tested by the user) |
-| 05 | Document ingestion | Not started |
+| 04 | Google sign-in | Done (real login tested by the user) |
+| 05 | Document ingestion | Done (committed locally; not pushed) |
 | 06 | pgvector retrieval | Not started |
 | 07 | DeepSeek answers with citations | Not started |
 | 08 | LangGraph orchestration | Not started |
@@ -20,13 +20,15 @@ Living log of where the project stands. Update it at the end of every batch.
 ## Done so far
 - GitHub private repo `samanehK77/agentic-ai`; project lives in `Addiction/`.
 - Folder structure, `docs/SPEC.md`, `CLAUDE.md`, `.env.example`, `.gitignore`.
-- Four research PDFs placed in `data/papers/` (git-ignored).
+- Five research PDFs in `data/papers/` (git-ignored).
 - Batch 01: vanilla HTML/CSS/ES-module frontend in `frontend/` with mock data (see `frontend/README.md`). Verified in the browser: 10 patients, chat, citations, mode switch, timeline, loading/empty/error/no-evidence states, no console errors, no `innerHTML`. Committed (c23c13b).
 - Batch 02: PostgreSQL schema (6 tables), Alembic migration, idempotent seed of P-001..P-010, SQL queries, 74 passing pytest tests, `docs/DATA_DICTIONARY.md`, `docs/FRONTEND_INTEGRATION_PLAN.md`, `backend/README.md`. Committed (f5e2025).
 - Batch 03: FastAPI API on port 8001 (health, patients, history, papers, chat sessions, messages), migration 0002 (`papers`, `chat_sessions`, `chat_messages`), papers seed, standard error format and request ids, CORS, `APP_ENV=development` guard, `docs/API.md`, `docs/API_ACCESS_POLICY.md`; frontend patient list and detail now load from the API. Committed.
 
+- Batch 05: PDF ingestion pipeline (`python -m app.ingestion`): five registered PDFs extracted with PyMuPDF, cleaned, chunked to about 220 tokens and stored (migration 0004: ingestion fields on `papers`, `paper_chunks`, `ingestion_runs`); admin-only read endpoints; `docs/INGESTION.md`. 488 tests passing at the last full run.
+
 ## Open questions / decisions
-- Document 4 is a psychosocial-interventions review, not the Cochrane review named in SPEC.md. Decision (user, Batch 04): keep this paper and continue; SPEC.md is left unchanged.
+- Resolved in Batch 05: the Cochrane review named in SPEC.md is now the fifth document; the psychosocial-interventions review stays as an additional document.
 
 ## Batch 01 decisions
 - All data access is in `frontend/js/api.js`; Batch 03 swaps its bodies for `fetch()`.
@@ -70,10 +72,32 @@ Living log of where the project stands. Update it at the end of every batch.
 - The session fixtures in `tests/conftest.py` create users and login sessions directly in the test database; Google is faked (a local RSA key signs test ID tokens, so the real verification code runs).
 - Test-suite changes to older tests (not weakened): the PII scan skips `users`/`auth_sessions` (sign-in data), the table lists include the new tables, the owner-FK test now expects the FK, CORS tests use `localhost`.
 
+## Batch 05 decisions
+- **Google login confirmed by the user** (2026-10-29): the manual checklist in `docs/GOOGLE_AUTH_SETUP.md` passed, including the second-account isolation test. The corresponding known issue was removed.
+- **Chunk size deviates from SPEC:** about 220 tokens (max 250, overlap 40) instead of 400-700, because all-MiniLM-L6-v2 truncates at 256 word pieces. Tokens are counted with the model's own `tokenizer.json` (pinned revision `1110a243`, no model weights, no torch); counting includes [CLS]/[SEP]. `docs/SPEC.md` Retrieval line updated. The parameters and tokenizer revision are stored in `papers.chunking_version`, so changing them triggers re-chunking.
+- **Corpus is five documents** (Cochrane review added; the psychosocial review stays as an additional document). Metadata read from the first pages of each PDF; `metadata_source` records `document_text` vs `project_list`. NIDA's year is 2018 (the "Revised January 2018" third edition; first published 2014). The Med Sci Monit review's publishing company is not stated in the text, so the journal name is recorded.
+- Ingestion is a **CLI** (`python -m app.ingestion`), idempotent (file hash + chunking_version), one transaction per document, PostgreSQL advisory lock, no OCR, no network. No HTTP endpoint triggers it.
+- Admin endpoints are read-only (`/api/admin/papers`, `/papers/{id}`, `/papers/{id}/chunks`, `/chunks/{id}`), 401 / 403 / 404 / 422; file names, paths and hashes are never returned; full chunk text only to admins.
+- Everything about structure (headers/footers, ToC, references, tables, section titles) is heuristic; limits are listed in `docs/INGESTION.md`.
+- Test-suite changes to older tests (not weakened): five papers instead of four, new tables in the table list, new CHECK constraints in the vocabulary drift test, new admin routes in the OpenAPI list.
+
+## Batch 05 results on this machine (real run, 2026-10-29)
+All five documents `ingested`, none `failed` or `needs_ocr`; 2,579 chunks in total, all at most 250 tokens. A second run reported every document `unchanged`.
+
+| Document | Pages | Low-text pages | Chunks | Tokens min / median / max | Notes |
+|----------|-------|----------------|--------|---------------------------|-------|
+| Cochrane combined interventions (2025) | 113 | 0 | 802 | 3 / 83 / 250 | 557 header/footer blocks and 44 dot-leader lines removed; 144 reference chunks; many short chunks from tables and study characteristics |
+| NIDA Principles (3rd ed.) | 47 | 0 | 168 | 46 / 174 / 242 | has a PDF outline (115 entries); no reference section detected |
+| Psychosocial interventions review | 12 | 0 | 97 | 7 / 179 / 221 | 27 reference chunks |
+| WHO mhGAP guideline 2023 | 184 | 4 (pages 2, 18, 33, 183) | 843 | 6 / 141 / 250 | 116 reference chunks |
+| WHO mhGAP Intervention Guide v2.0 | 174 | 10 | 669 | 3 / 63 / 250 | landscape, flowcharts and tables: about 145 chunks under 20 tokens and noisy section titles (for example "PROTOCOL") |
+
+Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_injection`.
+
 ## Known issues
-- **The real Google login has not been tested by a human.** Tests use a fake Google. Follow the checklist in `docs/GOOGLE_AUTH_SETUP.md`.
+- Ingestion heuristics are imperfect (see `docs/INGESTION.md`): the Intervention Guide's flowcharts produce many tiny fragments, some Cochrane running-header text survives as short chunks, and section titles can be noisy.
+- The symbolic-link rejection test is skipped on this Windows machine because creating symlinks needs extra permission; the check itself is in `resolve_pdf`.
 - No rate limiting; plain HTTP; `/docs` is open in development; used OAuth states are remembered per process only (see `docs/API_ACCESS_POLICY.md`).
-- The signed-in UI state (name and sign-out button) could not be seen in my checks because it needs a real Google login; the signed-out state, `?auth_error=` message and `?source=mock` were checked in the browser.
 - The patient detail view makes two requests (profile + history) because the profile endpoint does not embed history events.
 - Starlette's test client prints a deprecation warning about `httpx` (it prefers a newer `httpx2` package); tests still pass. The brief asked for httpx, so it is kept.
 - The `?state=error` demo is applied in the frontend before any request, so it does not test the API's own errors; stopping the API does.
@@ -86,4 +110,4 @@ Living log of where the project stands. Update it at the end of every batch.
 4. `.env` must contain the database settings, `APP_ENV=development`, `SESSION_SECRET` (32+ characters) and the Google variables from `docs/GOOGLE_AUTH_SETUP.md` (git-ignored, never committed). Always open `http://localhost:8000` (not 127.0.0.1).
 
 ## Next step
-Test the real Google login yourself (`docs/GOOGLE_AUTH_SETUP.md`, checklist), then Batch 05: document ingestion.
+Batch 06: pgvector retrieval (embeddings for the stored chunks, cosine search, and a retrieval-quality check).

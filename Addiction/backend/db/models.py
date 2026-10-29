@@ -7,9 +7,11 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, MetaData,
+    ARRAY, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, MetaData,
     SmallInteger, Text, UniqueConstraint, Uuid, func, text,
 )
+from sqlalchemy import text as sql_text  # the PaperChunk column named "text" shadows text() inside that class
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 VOCAB = {
@@ -32,11 +34,15 @@ VOCAB = {
     ),
     "completion_status": ("completed", "dropped_out", "ongoing", "not_started", "unknown"),
     "progress_status": ("abstinent", "reduced", "unchanged", "increased", "relapse", "unknown"),
+    # Batch 05
+    "metadata_source": ("project_list", "document_text"),
+    "section_type": ("body", "table_or_figure", "references", "front_matter"),
+    "run_status": ("running", "completed", "completed_with_errors", "failed"),
     # Batch 04
     "user_role": ("student", "admin"),
     # Batch 03
     "document_type": ("guideline", "guide", "review", "unknown"),
-    "ingest_status": ("not_ingested", "ingested", "failed"),
+    "ingest_status": ("not_ingested", "ingested", "failed", "needs_ocr"),
     "message_role": ("user", "assistant"),
     "chat_mode": ("general_knowledge", "rag", "both"),
 }
@@ -261,8 +267,22 @@ class Paper(Base):
     source_note: Mapped[str] = mapped_column(Text, nullable=False)
     ingest_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_ingested'"))
     created_at: Mapped[datetime] = _created()
+    # Batch 05: ingestion state. file_name is internal only and never leaves the API layer.
+    file_name: Mapped[str | None] = mapped_column(Text)
+    content_sha256: Mapped[str | None] = mapped_column(Text)
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    chunking_version: Mapped[str | None] = mapped_column(Text)
+    ingested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    doi: Mapped[str | None] = mapped_column(Text)
+    metadata_source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'project_list'"))
+    low_text_pages: Mapped[list[int]] = mapped_column(ARRAY(Integer), nullable=False, server_default=text("'{}'"))
+    ingest_note: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
+        CheckConstraint(_in("metadata_source", "metadata_source"), name="metadata_source_values"),
+        CheckConstraint(r"file_name IS NULL OR (length(trim(file_name)) > 0 AND file_name !~ '[/\\]')", name="file_name_bare"),
+        CheckConstraint("content_sha256 IS NULL OR content_sha256 ~ '^[0-9a-f]{64}$'", name="sha256_format"),
+        CheckConstraint("page_count IS NULL OR page_count > 0", name="page_count_positive"),
         CheckConstraint("paper_id ~ '^[a-z0-9][a-z0-9-]*$'", name="id_format"),
         CheckConstraint(_in("document_type", "document_type"), name="document_type_values"),
         CheckConstraint(_in("ingest_status", "ingest_status"), name="ingest_status_values"),
@@ -351,3 +371,48 @@ class AuthSession(Base):
         UniqueConstraint("token_hash", name="uq_auth_sessions_token_hash"),
         Index("ix_auth_sessions_user_id", "user_id"),
     )
+
+
+class PaperChunk(Base):
+    __tablename__ = "paper_chunks"
+
+    chunk_id: Mapped[str] = mapped_column(Text, primary_key=True)  # <paper_id>-c<ordinal:04d>
+    paper_id: Mapped[str] = mapped_column(Text, ForeignKey("papers.paper_id", ondelete="CASCADE"), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    section_title: Mapped[str | None] = mapped_column(Text)
+    section_type: Mapped[str] = mapped_column(Text, nullable=False)
+    text_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    possible_injection: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sql_text("false"))
+    created_at: Mapped[datetime] = _created()
+
+    __table_args__ = (
+        CheckConstraint("chunk_id ~ '^[a-z0-9][a-z0-9-]*-c[0-9]{4,}$'", name="id_format"),
+        CheckConstraint("chunk_id LIKE paper_id || '-c%'", name="key_matches_paper"),
+        CheckConstraint("ordinal >= 1", name="ordinal_positive"),
+        CheckConstraint("length(trim(text)) > 0", name="text_not_blank"),
+        CheckConstraint("token_count > 0", name="token_count_positive"),
+        CheckConstraint("page_start >= 1 AND page_end >= page_start", name="pages_valid"),
+        CheckConstraint(_in("section_type", "section_type"), name="section_type_values"),
+        CheckConstraint("text_sha256 ~ '^[0-9a-f]{64}$'", name="sha256_format"),
+        Index("ix_paper_chunks_paper_id", "paper_id"),
+        Index("ix_paper_chunks_paper_ordinal", "paper_id", "ordinal", unique=True),
+    )
+
+
+class IngestionRun(Base):
+    """Statistics about one ingestion run. Never contains document text."""
+
+    __tablename__ = "ingestion_runs"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    started_at: Mapped[datetime] = _created()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'running'"))
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    results: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+    __table_args__ = (CheckConstraint(_in("status", "run_status"), name="status_values"),)

@@ -8,3 +8,5 @@ node_modules/
 data/papers/*.pdf
 pgdata/
 .pytest_cache/
+data/ingestion_reports/
+backend/models/

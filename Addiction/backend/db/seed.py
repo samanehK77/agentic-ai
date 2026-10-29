@@ -52,7 +52,10 @@ def load_cases(seed_dir: Path = SEED_DIR) -> list[dict]:
     return cases
 
 
-PAPER_FIELDS = ["title", "document_type", "publisher", "publication_year", "source_note"]
+# Ingestion state (status, hash, chunks, ...) is deliberately not seeded: only the ingestion CLI changes it.
+PAPER_FIELDS = [
+    "title", "document_type", "publisher", "publication_year", "source_note", "file_name", "doi", "metadata_source",
+]
 
 
 def load_papers(seed_dir: Path = SEED_DIR) -> list[dict]:
@@ -93,7 +96,7 @@ def seed(engine: Engine, seed_dir: Path = SEED_DIR) -> dict[str, int]:
                 conn.execute(delete(model).where(model.patient_id == pid, getattr(model, id_col).not_in(keys)))
         # Paper metadata (ingest_status is left alone so later batches can change it).
         for paper in load_papers(seed_dir):
-            row = {"paper_id": paper["paper_id"], **{f: paper[f] for f in PAPER_FIELDS}}
+            row = {"paper_id": paper["paper_id"], **{f: paper.get(f) for f in PAPER_FIELDS}}
             stmt = insert(Paper).values(**row)
             conn.execute(stmt.on_conflict_do_update(
                 index_elements=["paper_id"], set_={f: stmt.excluded[f] for f in PAPER_FIELDS}))

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth_service import AuthUser
 from app.errors import not_found, service_unavailable
+from app.repositories import admin_papers as admin_papers_repo
 from app.repositories import health as health_repo
 from app.repositories import papers as papers_repo
 from app.repositories import patients as patients_repo
@@ -58,3 +59,29 @@ def get_session(db: Session, user: AuthUser, session_id: UUID) -> dict:
 def list_messages(db: Session, user: AuthUser, session_id: UUID, limit: int, offset: int):
     get_session(db, user, session_id)  # 404 for an unknown or foreign session
     return sessions_repo.list_messages(db, session_id, limit, offset)
+
+
+# ---------------------------------------------------------------- administrator views of ingestion (Batch 05)
+
+def admin_list_papers(db: Session, limit: int, offset: int):
+    return admin_papers_repo.list_papers(db, limit, offset)
+
+
+def admin_get_paper(db: Session, paper_id: str) -> dict:
+    paper = admin_papers_repo.get_paper(db, paper_id)
+    if paper is None:
+        raise not_found(f"Paper {paper_id} was not found.")
+    return paper
+
+
+def admin_list_chunks(db: Session, paper_id: str, section_type: str | None, limit: int, offset: int):
+    if not admin_papers_repo.paper_exists(db, paper_id):
+        raise not_found(f"Paper {paper_id} was not found.")
+    return admin_papers_repo.list_chunks(db, paper_id, section_type, limit, offset)
+
+
+def admin_get_chunk(db: Session, chunk_id: str) -> dict:
+    chunk = admin_papers_repo.get_chunk(db, chunk_id)
+    if chunk is None:
+        raise not_found(f"Chunk {chunk_id} was not found.")
+    return chunk

@@ -9,10 +9,10 @@ from sqlalchemy.engine import Engine
 
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
-from app.deps import current_user
+from app.deps import current_user, require_role
 from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMiddleware
 from app.schemas.common import ERROR_401
-from app.routers import auth, health, papers, patients, sessions
+from app.routers import admin_papers, auth, health, papers, patients, sessions
 from db.config import get_engine
 
 DESCRIPTION = """
@@ -29,7 +29,8 @@ TAGS = [
     {"name": "health", "description": "Liveness and database check."},
     {"name": "auth", "description": "Google sign-in, current user and sign-out."},
     {"name": "patients", "description": "Synthetic patient cases and their histories."},
-    {"name": "papers", "description": "Research corpus metadata (no document text yet)."},
+    {"name": "papers", "description": "Research corpus metadata (no document text)."},
+    {"name": "admin", "description": "Administrator-only ingestion results, including full chunk text."},
     {"name": "sessions", "description": "Chat sessions and their messages."},
 ]
 
@@ -64,6 +65,8 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
     app.include_router(auth.router)
     for router in (patients.router, papers.router, sessions.router):
         app.include_router(router, dependencies=[Depends(current_user)], responses=ERROR_401)  # 401 unless signed in
+    # Administrator-only (401 when signed out, 403 for students). Read-only: nothing here starts an ingestion.
+    app.include_router(admin_papers.router, dependencies=[Depends(require_role("admin"))], responses=ERROR_401)
     return app
 
 
