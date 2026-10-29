@@ -285,6 +285,27 @@ a.btn { text-decoration: none; }
 .message-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
 .message-assistant { border: 1px solid var(--interp-line); border-left-width: 6px; border-left-style: dotted; background: var(--interp-bg); }
 .message-placeholder { border: 1px dashed var(--border); border-left-width: 6px; background: #f7f9fb; }
+.message-answer { border: 1px solid var(--border); border-left-width: 6px; background: #fff; display: grid; gap: 0.5rem; }
+.answer-section { padding: 0.45rem 0.6rem; border-radius: var(--radius); border: 1px solid var(--border); }
+.answer-section.kind-patient_fact { background: var(--fact-bg); border-color: var(--fact-line); border-left-width: 5px; }
+.answer-section.kind-research_finding { background: var(--evidence-bg); border: 1px dashed var(--evidence-line); border-left-width: 5px; }
+.answer-section.kind-interpretation { background: var(--interp-bg); border: 1px dotted var(--interp-line); border-left-width: 5px; }
+.answer-section.kind-general_knowledge { background: #f1f1f1; border: 1px solid #8a8a8a; border-left: 5px double #6b6b6b; }
+.answer-section.kind-withheld { background: var(--error-bg); border-color: var(--error-fg); color: var(--error-fg); }
+.prov-general, .prov-withheld { display: inline-flex; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700; border: 1px solid #6b6b6b; background: #fff; }
+.prov-withheld { border-color: var(--error-fg); color: var(--error-fg); }
+.notice-escalation { padding: 0.6rem 0.8rem; background: var(--error-bg); color: var(--error-fg); border: 2px solid var(--error-fg); border-radius: var(--radius); font-weight: 600; }
+.answer-block { padding: 0.45rem 0.6rem; border-radius: var(--radius); border: 1px dashed var(--border); background: #fafbfc; }
+.answer-block.block-unsupported { border-color: #b58900; background: var(--warn-bg); color: var(--warn-fg); }
+.answer-block.block-conflict { border-color: #8a4b9e; background: #f6eefb; }
+.answer-block-title { font-weight: 700; margin: 0 0 0.2rem; }
+.answer-block ul { margin: 0; padding-left: 1.2rem; }
+.answer-limitations { margin: 0; font-size: 0.9rem; }
+.answer-notes { font-size: 0.85rem; }
+.citation-chip.unverified { border-style: solid; border-color: #b58900; background: var(--warn-bg); color: var(--warn-fg); }
+.evidence-group-title { font-size: 0.85rem; margin: 0.6rem 0 0.3rem; color: var(--muted); }
+.excerpt:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+.excerpt mark { background: #ffe58a; color: inherit; padding: 0 0.1rem; }
 .message-error { background: var(--error-bg); color: var(--error-fg); border-color: var(--error-fg); }
 .message-text { overflow-wrap: anywhere; }
 .citation-row { margin-top: 0.4rem; display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; font-size: 0.85rem; }

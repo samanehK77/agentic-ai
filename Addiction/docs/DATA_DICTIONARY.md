@@ -268,3 +268,17 @@ Embeddings for semantic search (see `docs/RETRIEVAL.md`). The migration creates 
 
 A CHECK constraint makes the columns consistent: `embedding IS NOT NULL` exactly when `embedding_status = 'embedded'` and `embedding_fingerprint IS NOT NULL`. Chunks written by ingestion (Batch 05) get the default `pending`; replacing a document's chunks deletes the old vectors with the old rows.
 
+# Added in Batch 07 (migration 0006)
+
+Structured answers on the existing `chat_messages` table (see `docs/LLM.md`).
+
+## chat_messages (new columns)
+| Column | Type | Purpose / rules |
+|--------|------|-----------------|
+| `response` | jsonb, nullable | Assistant messages only. The validated structured answer: sections, citations (by `chunk_id`, with the quote and `verified`), evidence references (`chunk_id`, `text_sha256`, similarity, cited, excluded_reason), unsupported claims, conflicting evidence, limitations, safety (escalation, flags) and the trace. No chunk text, no question, no prompt. |
+| `generation` | jsonb, nullable | Assistant messages only. Telemetry: `llm_called`, model id returned by the API, `prompt_version`, latency, token counts, retries, repair flag, parameters. Never prompt or answer text. |
+| `idempotency_key` | text, nullable | The client's `Idempotency-Key` (8 to 64 characters of `A-Za-z0-9._-`); assistant messages only. |
+| `request_hash` | text, nullable | SHA-256 of (session, mode, trimmed content); set exactly when `idempotency_key` is set. |
+
+Constraints: key and hash formats; `idempotency_key` and `request_hash` are both null or both set; `response`, `generation` and the key exist only on `role = 'assistant'`. A partial unique index `uq_chat_messages_session_idempotency` on `(session_id, idempotency_key) WHERE idempotency_key IS NOT NULL` makes a key unique per session. The user message and the assistant message of a turn are inserted with explicit `clock_timestamp()` values so their order is stable. Messages from before Batch 07 keep all new columns null.
+

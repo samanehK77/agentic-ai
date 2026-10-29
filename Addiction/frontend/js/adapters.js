@@ -73,3 +73,55 @@ export function evidenceChunk(hit) {
     real: true,
   };
 }
+
+// ---------------------------------------------------------------- Batch 07: answers
+
+// API mode names <-> the UI's short names.
+export const API_MODE = { gk: "general_knowledge", rag: "rag", both: "both" };
+export const UI_MODE = { general_knowledge: "gk", rag: "rag", both: "both" };
+
+// The Evidence Inspector list for one answer: every chunk shown to the model, with whether it was cited.
+export function evidenceFromAnswer(answer) {
+  const quoteFor = new Map(answer.citations.map((c) => [c.chunk_id, { quote: c.quote, verified: c.verified }]));
+  return answer.evidence.map((e) => {
+    const pages = e.page_start == null ? "?" : e.page_start === e.page_end ? String(e.page_start) : `${e.page_start}-${e.page_end}`;
+    return {
+      citation_id: e.chunk_id,
+      document: e.source_title || "(document no longer available)",
+      section: e.section_title || "(no section title)",
+      page: pages,
+      text: e.text,
+      score: e.similarity,
+      section_type: e.section_type,
+      possible_injection: e.possible_injection === true,
+      real: true,
+      alias: e.alias,
+      cited: e.cited === true,
+      excluded_reason: e.excluded_reason,
+      stale: e.stale === true,
+      quote: quoteFor.get(e.chunk_id)?.quote ?? null,
+      quote_verified: quoteFor.get(e.chunk_id)?.verified ?? null,
+    };
+  });
+}
+
+// Trace events of an answer -> timeline items (validation and safety use the generic "info" icon).
+export function traceToEvents(answer, patientId) {
+  const base = Date.parse(answer.created_at) || Date.now();
+  return answer.trace.map((evt, i) => ({
+    id: `evt-${answer.message_id}-${i}`,
+    type: evt.type === "retrieval" || evt.type === "generation" ? evt.type : "info",
+    label: evt.label,
+    detail: [evt.detail, evt.latency_ms != null ? `${evt.latency_ms} ms` : ""].filter(Boolean).join(" · "),
+    time: new Date(base + i * 50).toISOString(),
+    patient_id: patientId,
+  }));
+}
+
+// A stored API message -> the chat message shape the renderers use.
+export function messageFromApi(item) {
+  if (item.role === "user") return { role: "user", text: item.content };
+  const mode = UI_MODE[item.mode] || "rag";
+  if (!item.answer) return { role: "assistant", text: item.content, mode, kind: "plain" };
+  return { role: "assistant", text: item.content, mode, kind: "answer", answer: item.answer };
+}

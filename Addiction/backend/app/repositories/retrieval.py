@@ -12,7 +12,7 @@ _INDEX_STATE = text("""
 
 _SEARCH = text("""
     SELECT c.chunk_id, c.paper_id, p.title, c.section_title, c.section_type, c.page_start, c.page_end, c.text,
-           1 - (c.embedding <=> CAST(:q AS vector)) AS similarity, c.possible_injection
+           1 - (c.embedding <=> CAST(:q AS vector)) AS similarity, c.possible_injection, c.text_sha256
     FROM paper_chunks c JOIN papers p ON p.paper_id = c.paper_id
     WHERE c.embedding_status = 'embedded'
       AND c.section_type IN ('body', 'table_or_figure')

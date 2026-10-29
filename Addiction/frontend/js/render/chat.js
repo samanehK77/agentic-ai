@@ -1,5 +1,6 @@
 // Chat panel. The log is append-only so the aria-live region announces only new messages.
 import { el, provenanceBadge } from "./dom.js";
+import { renderAnswer } from "./answer.js";
 
 let renderedFor = null;
 let renderedCount = 0;
@@ -25,8 +26,8 @@ export function renderChat(state, actions) {
   input.disabled = disabled;
   send.disabled = disabled;
   input.placeholder = ready ? "Ask a question about this synthetic case…" : "Select a patient to start";
-  const live = state.auth.status !== "mock" && state.mode !== "gk";
-  status.textContent = state.sending ? (live ? "Searching the documents…" : "Waiting for a mock reply…") : "";
+  const live = state.auth.status !== "mock";
+  status.textContent = state.sending ? (live ? "Generating the answer… this can take a few seconds." : "Waiting for a mock reply…") : "";
 
   const messages = (state.selectedId && state.messages[state.selectedId]) || [];
 
@@ -51,11 +52,12 @@ export function renderChat(state, actions) {
 
 function emptyHint(ready) {
   return el("p", { class: "chat-empty", text: ready
-    ? "No messages yet. Type a question below. General Knowledge replies are fixed mock text; RAG and Both show retrieved evidence only (answer generation arrives in Batch 07)."
+    ? "No messages yet. Type a question below. RAG answers only from the retrieved documents, Both adds clearly labelled general knowledge, General Knowledge uses no documents. Answers are educational, not clinical advice."
     : "Select a patient to start a conversation." });
 }
 
 function renderMessage(message, actions) {
+  if (message.kind === "answer" && message.answer) return renderAnswer(message, actions);
   if (message.role === "user") {
     return el("div", { class: "message message-user" },
       el("p", { class: "message-who", text: "You" }),

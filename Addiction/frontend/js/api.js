@@ -10,10 +10,19 @@
 
 import { PATIENTS, CHUNKS, REPLIES, TIMELINE_STEPS } from "../data/mock-data.js";
 import { API_BASE_URL } from "./config.js";
-import { evidenceChunk, patientDetail, patientListItem } from "./adapters.js";
+import { patientDetail, patientListItem } from "./adapters.js";
 
 // Thrown when the API answers 401, so the UI can show the signed-out state instead of an error.
 export class AuthError extends Error {}
+
+// Any other API failure: carries the HTTP status and the API's error code (for example rate_limited, llm_timeout).
+export class ApiError extends Error {
+  constructor(message, status, code) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
 
 let csrfToken = null;
 
@@ -48,8 +57,8 @@ export function isMockSource() {
   return new URLSearchParams(window.location.search).get("source") === "mock";
 }
 
-async function request(path, { method = "GET", body } = {}) {
-  const headers = { Accept: "application/json" };
+async function request(path, { method = "GET", body, headers: extraHeaders = {} } = {}) {
+  const headers = { Accept: "application/json", ...extraHeaders };
   if (method !== "GET") {
     headers["X-CSRF-Token"] = csrfToken || "";
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -68,13 +77,15 @@ async function request(path, { method = "GET", body } = {}) {
   if (response.status === 401) throw new AuthError("Not signed in.");
   if (!response.ok) {
     let message = `The API answered with status ${response.status}.`;
+    let code = null;
     try {
       const body = await response.json();
+      code = body?.error?.code ?? null;
       if (body?.error?.message) message = `${body.error.message} (request ${body.error.request_id})`;
     } catch {
       // keep the generic message
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status, code);
   }
   return response.status === 204 ? null : response.json();
 }
@@ -128,39 +139,44 @@ export async function getChunk(citationId) {
   return clone(chunk);
 }
 
-export const PLACEHOLDER_REPLY = "Answer generation arrives in Batch 07. Showing retrieved evidence only.";
+// ---------------------------------------------------------------- Batch 07: chat sessions and answers
 
-// Modes rag and both (outside ?source=mock) search the real documents (Batch 06). Answer generation does not exist
-// yet, so the reply is an explicit placeholder with NO citations: a citation may only ever point to a retrieved chunk.
-async function askWithRetrieval({ patientId, mode, text }) {
-  await gate(0);
-  const now = Date.now();
-  const event = (index, type, label, detail) => ({
-    id: `evt-${now}-${index}`, type, label, detail, time: new Date(now + index * 50).toISOString(), patient_id: patientId,
-  });
-  let chunks = [];
-  let latencyMs = 0;
-  if (demoState !== "no-evidence") { // the no-evidence demo needs no network call
-    const started = performance.now();
-    const body = await request("/api/retrieval/search", { method: "POST", body: { query: text, top_k: 5 } });
-    chunks = body.results.map(evidenceChunk);
-    latencyMs = body.latency_ms ?? Math.round(performance.now() - started);
-  }
-  return {
-    reply: { text: PLACEHOLDER_REPLY, mode, citations: [], placeholder: true },
-    chunks,
-    events: [
-      event(0, "retrieval", chunks.length ? "Chunks retrieved" : "No chunks above the threshold",
-        demoState === "no-evidence" ? "demo state" : `${chunks.length} chunk(s) · ${latencyMs} ms`),
-      event(1, "generation", "Answer generation: not implemented yet", "Batch 07"),
-    ],
-    question: text,
-  };
+// Applies the demo states (?state=loading|error) before any real request is made.
+export function checkDemoState() {
+  return gate(0);
 }
 
-// Returns { reply, chunks, events }. For general knowledge (and ?source=mock) the reply is fixed mock text chosen by mode.
+export function newIdempotencyKey() {
+  return globalThis.crypto?.randomUUID ? crypto.randomUUID() : `key-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+// The newest chat session of this user for this patient, or null.
+export async function latestSession(patientId) {
+  const page = await request(`/api/sessions?patient_id=${encodeURIComponent(patientId)}&limit=1`);
+  return page.items[0] || null;
+}
+
+export function createSession(patientId) {
+  return request("/api/sessions", { method: "POST", body: { patient_id: patientId } });
+}
+
+export async function listMessages(sessionId) {
+  const page = await request(`/api/sessions/${encodeURIComponent(sessionId)}/messages?limit=100`);
+  return page.items;
+}
+
+// Asks one question. A fresh Idempotency-Key per submit: a double submit returns the stored answer, never a second model call.
+export async function postMessage(sessionId, { content, mode, key }) {
+  await gate(0); // demo states (?state=loading|error) apply here too
+  return request(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
+    method: "POST",
+    body: { content, mode },
+    headers: { "Idempotency-Key": key },
+  });
+}
+
+// MOCK path only (?source=mock): returns { reply, chunks, events } with fixed mock text chosen by mode.
 export async function askQuestion({ patientId, mode, text }) {
-  if ((mode === "rag" || mode === "both") && !isMockSource()) return askWithRetrieval({ patientId, mode, text });
   await gate(450);
   const usesRetrieval = mode === "rag" || mode === "both";
   const noEvidence = usesRetrieval && demoState === "no-evidence";

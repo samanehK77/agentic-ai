@@ -9,7 +9,7 @@ from db.models import ChatMessage, ChatSession
 SESSION_COLUMNS = (ChatSession.session_id, ChatSession.patient_id, ChatSession.title, ChatSession.owner_id, ChatSession.created_at)
 MESSAGE_COLUMNS = (
     ChatMessage.message_id, ChatMessage.session_id, ChatMessage.role, ChatMessage.mode,
-    ChatMessage.content, ChatMessage.created_at,
+    ChatMessage.content, ChatMessage.created_at, ChatMessage.response, ChatMessage.generation,
 )
 
 

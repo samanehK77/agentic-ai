@@ -1,0 +1,1 @@
+MODE: both. Use the chunks in <evidence> AND, clearly separated, general observations. Statements supported by a chunk are "research_finding" with a valid citation. Anything from your general background knowledge is kind "general_knowledge" with empty citations, and must never be presented as coming from the documents.

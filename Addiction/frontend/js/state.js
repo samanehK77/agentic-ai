@@ -10,7 +10,8 @@ export const state = {
   patients: { status: "loading", items: [], error: null }, // loading | ready | empty | error | signed-out
   selectedId: null,
   patient: { status: "idle", data: null, error: null }, // idle | loading | ready | error
-  messages: {}, // { [patientId]: [{ role, text, citations?, mode?, kind? }] }
+  messages: {}, // { [patientId]: [{ role, text, citations?, mode?, kind?, answer? }] }
+  sessions: {}, // { [patientId]: { id } }: the chat session in use for each patient (null id = start a new one)
   sending: false,
   lastQuestion: null,
   evidence: { status: "idle", chunks: [], error: null }, // idle | ready | no-evidence | error

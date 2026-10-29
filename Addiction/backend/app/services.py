@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.auth_service import AuthUser
+from app.answers import service as answers_service
 from app.retrieval import service as retrieval_service
 from app.errors import not_found, service_unavailable
 from app.repositories import admin_papers as admin_papers_repo
@@ -59,7 +60,8 @@ def get_session(db: Session, user: AuthUser, session_id: UUID) -> dict:
 
 def list_messages(db: Session, user: AuthUser, session_id: UUID, limit: int, offset: int):
     get_session(db, user, session_id)  # 404 for an unknown or foreign session
-    return sessions_repo.list_messages(db, session_id, limit, offset)
+    items, total = sessions_repo.list_messages(db, session_id, limit, offset)
+    return answers_service.attach_answers(db, items), total
 
 
 # ---------------------------------------------------------------- administrator views of ingestion (Batch 05)

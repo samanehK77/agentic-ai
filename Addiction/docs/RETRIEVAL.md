@@ -47,7 +47,7 @@ The API and the test suite do **not** need torch: without it, search answers `50
 | `--batch-size`, `EMBED_BATCH_SIZE` | chunks per batch (default 32); each batch is one transaction |
 | `EMBED_MIN_TOKENS` | minimum tokens for eligibility (default 20) |
 | `EMBEDDING_MODEL_PATH` | model folder (default `backend/models/all-MiniLM-L6-v2`, git-ignored) |
-| `RETRIEVAL_MIN_SIMILARITY` | default threshold for search (default none) |
+| `RETRIEVAL_MIN_SIMILARITY` | default similarity threshold for search and answers: **0.45** (set a number, or `none` to disable) |
 | `RETRIEVAL_RATE_LIMIT_PER_MINUTE` | searches per user per minute (default 30; 429 `rate_limited` above it) |
 
 Exit codes of the CLI: `0` ok, `1` something failed or stale vectors need `--force`, `2` invalid settings or the model is not installed, `3` another embedding run is in progress. Transient database errors are retried three times with backoff; model errors stop the run with a clear message. Logs and output never contain chunk text.
@@ -80,3 +80,8 @@ Queries live in `backend/eval/retrieval_queries.json` and are easy to extend (th
 - The rate limiter is in-process (one server only).
 - Search does not use the patient case; it embeds only the question text.
 - No reranking, no hybrid keyword search, no document-level permissions yet (the WHERE clause is where they would go).
+
+## The similarity threshold (since Batch 07)
+
+The default threshold is **0.45**. It sits between the Batch 06 evaluation's lowest in-domain top-1 similarity (0.63) and highest out-of-domain top-1 similarity (0.28); the midpoint is about 0.455. This rests on a **very small sample** (15 in-domain and 4 out-of-domain queries, keyword-labelled): it can reject legitimate questions that are phrased unusually and accept irrelevant ones. In `rag` and `both` mode an answer is only generated when at least one chunk reaches the threshold (`docs/LLM.md`). Re-run `python -m app.eval_retrieval` and extend `backend/eval/retrieval_queries.json` before relying on it.
+

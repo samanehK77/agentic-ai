@@ -11,7 +11,10 @@ from sqlalchemy.engine import Engine
 
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
+from app.answers.service import Pipeline
 from app.deps import current_user, require_role
+from app.llm.base import BaseLLMClient
+from app.llm.deepseek import DeepSeekClient
 from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMiddleware
 from app.schemas.common import ERROR_401
 from app.retrieval.embedder import Embedder, EmbedderProvider
@@ -48,7 +51,8 @@ def _warm_up(provider: EmbedderProvider) -> None:
         logging.getLogger("mindevidence.retrieval").warning("warm-up skipped: %s", type(error).__name__)
 
 
-def create_app(engine: Engine | None = None, settings: Settings | None = None, embedder: Embedder | None = None) -> FastAPI:
+def create_app(engine: Engine | None = None, settings: Settings | None = None, embedder: Embedder | None = None,
+               llm_client: BaseLLMClient | None = None) -> FastAPI:
     settings = settings or load_settings()  # raises unless APP_ENV=development
 
     app = FastAPI(
@@ -62,6 +66,10 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
     # The embedding model loads lazily on the first search (torch is optional). Tests pass a fake embedder.
     app.state.embedder_provider = EmbedderProvider.fixed(embedder) if embedder else EmbedderProvider()
     app.state.rate_limiter = SlidingWindowLimiter(settings.retrieval_rate_limit_per_minute)
+    # The LLM client never makes a network call at construction; without a key it simply reports configured=False.
+    app.state.llm_client = llm_client or DeepSeekClient(settings.llm)
+    app.state.answer_pipeline = Pipeline(settings, app.state.llm_client, app.state.embedder_provider,
+                                         SlidingWindowLimiter(settings.answer_rate_limit_per_minute))
     if settings.retrieval_warmup and embedder is None:
         _warm_up(app.state.embedder_provider)
     app.state.used_states = {}  # OAuth states already consumed (state -> expiry), so a signed cookie works once
@@ -71,7 +79,7 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", REQUEST_ID_HEADER, "X-CSRF-Token"],
+        allow_headers=["Content-Type", REQUEST_ID_HEADER, "X-CSRF-Token", "Idempotency-Key"],
         expose_headers=[REQUEST_ID_HEADER],
         allow_credentials=True,
     )

@@ -106,6 +106,7 @@ EXPECTED_OPERATIONS = {
     ("post", "/api/sessions"),
     ("get", "/api/sessions/{session_id}"),
     ("get", "/api/sessions/{session_id}/messages"),
+    ("post", "/api/sessions/{session_id}/messages"),
 }
 
 

@@ -45,6 +45,7 @@
     <section id="panel-chat" class="panel panel-chat" aria-labelledby="h-chat">
       <div class="panel-head">
         <h2 id="h-chat">Conversation</h2>
+        <button type="button" id="new-conversation" class="btn btn-small">New conversation</button>
         <span class="mode-pill" data-mode-pill></span>
       </div>
       <p id="chat-context" class="chat-context"></p>
@@ -62,7 +63,7 @@
 
       <form id="chat-form" class="chat-form" autocomplete="off">
         <label for="chat-input" class="visually-hidden">Your question</label>
-        <input id="chat-input" type="text" maxlength="500" placeholder="Select a patient to start" disabled>
+        <input id="chat-input" type="text" maxlength="1000" placeholder="Select a patient to start" disabled>
         <button id="chat-send" type="submit" class="btn btn-primary" disabled>Send</button>
       </form>
     </section>
@@ -72,7 +73,7 @@
         <h2 id="h-evidence">Evidence inspector</h2>
         <span class="mode-pill" data-mode-pill></span>
       </div>
-      <p class="panel-hint">All excerpts are labeled MOCK and are not from real documents.</p>
+      <p class="panel-hint">Excerpts are the document chunks retrieved for the question (untrusted text, shown as evidence only). In demo mode (<code>?source=mock</code>) they are invented and labeled MOCK.</p>
       <div id="evidence-body"></div>
     </section>
 

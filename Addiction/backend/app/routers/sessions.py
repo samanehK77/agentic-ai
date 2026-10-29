@@ -1,14 +1,26 @@
+import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Header, Query, Request, Response
 
 from app import services
 from app.deps import CurrentUser, DbSession, PageParams
-from app.schemas.common import ERROR_404, ERROR_422, Page
+from app.answers import service as answers_service
+from app.errors import request_id_of
+from app.schemas.answers import AnswerOut, MessageCreate
+from app.schemas.common import ERROR_403, ERROR_404, ERROR_422, Page
 from app.schemas.sessions import MessageOut, SessionCreate, SessionOut
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+ERROR_ANSWER = {
+    409: {"description": "`idempotency_conflict`: the Idempotency-Key was used with a different request."},
+    429: {"description": "`rate_limited`: too many questions (see Retry-After)."},
+    502: {"description": "`llm_bad_output`: the model returned an answer that could not be used (after one repair attempt)."},
+    503: {"description": "`llm_not_configured`, `llm_unavailable`, or a retrieval error (`retrieval_unavailable`, `retrieval_not_ready`, `index_incompatible`)."},
+    504: {"description": "`llm_timeout`: the model did not answer in time."},
+}
 
 
 @router.get(
@@ -56,9 +68,37 @@ def get_session(session_id: UUID, user: CurrentUser, db: DbSession) -> SessionOu
     "/{session_id}/messages",
     response_model=Page[MessageOut],
     summary="List the messages of a chat session",
-    description="Oldest first. Another user's session returns 404. A session with no messages returns an empty list. Nothing writes messages yet (Batches 07-08).",
+    description="Oldest first. Another user's session returns 404. Assistant messages carry `answer`: the structured answer with its citations and the chunks shown to the model, joined from the current chunk table (`stale` if a chunk changed or is gone).",
     responses={**ERROR_404, **ERROR_422},
 )
 def list_messages(session_id: UUID, user: CurrentUser, db: DbSession, page: PageParams) -> Page[MessageOut]:
     items, total = services.list_messages(db, user, session_id, page.limit, page.offset)
     return Page[MessageOut](items=items, total=total, limit=page.limit, offset=page.offset)
+
+
+@router.post(
+    "/{session_id}/messages",
+    response_model=AnswerOut,
+    status_code=201,
+    summary="Ask a question in a chat session",
+    description=(
+        "Answers a question about the session's synthetic patient in one of three modes (general_knowledge, rag, both) and "
+        "stores the question and the answer. Requires the X-CSRF-Token header. Send an optional `Idempotency-Key` (8 to 64 "
+        "characters of A-Z a-z 0-9 . _ -): the same key and body returns the stored answer without calling the model again; "
+        "the same key with a different body is a 409. On any failure nothing is stored, so the same key can be retried. "
+        "The answer is educational: it does not diagnose, prescribe or choose a treatment. Chat and chunk text are untrusted data. "
+        "The question text, chunk text, prompts and answers are never logged."),
+    responses={**ERROR_403, **ERROR_404, **ERROR_422, **ERROR_ANSWER},
+)
+def post_message(
+    session_id: UUID, body: MessageCreate, request: Request, response: Response, user: CurrentUser, db: DbSession,
+    idempotency_key: Annotated[str | None, Header(
+        alias="Idempotency-Key", min_length=8, max_length=64, pattern=r"^[A-Za-z0-9._-]+$",
+        description="Optional. Makes a retry of the same question safe (no second model call).")] = None,
+) -> AnswerOut:
+    reply, replayed = answers_service.post_message(
+        db, request.app.state.answer_pipeline, user=user, session_id=session_id, content=body.content, mode=body.mode,
+        idempotency_key=idempotency_key, request_id=request_id_of(request))
+    if replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return AnswerOut(**reply)

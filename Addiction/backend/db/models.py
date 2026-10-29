@@ -324,8 +324,21 @@ class ChatMessage(Base):
     mode: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = _created()
+    # Batch 07: assistant rows carry the validated structured answer and telemetry (never prompt text).
+    response: Mapped[dict | None] = mapped_column(JSONB)
+    generation: Mapped[dict | None] = mapped_column(JSONB)
+    idempotency_key: Mapped[str | None] = mapped_column(Text)
+    request_hash: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
+        CheckConstraint("idempotency_key IS NULL OR idempotency_key ~ '^[A-Za-z0-9._-]{8,64}$'", name="idempotency_key_format"),
+        CheckConstraint("request_hash IS NULL OR request_hash ~ '^[0-9a-f]{64}$'", name="request_hash_format"),
+        CheckConstraint("(idempotency_key IS NULL) = (request_hash IS NULL)", name="key_and_hash_together"),
+        CheckConstraint(
+            "role = 'assistant' OR (response IS NULL AND generation IS NULL AND idempotency_key IS NULL)",
+            name="answer_fields_assistant_only"),
+        Index("uq_chat_messages_session_idempotency", "session_id", "idempotency_key", unique=True,
+              postgresql_where=text("idempotency_key IS NOT NULL")),
         CheckConstraint(_in("role", "message_role"), name="role_values"),
         CheckConstraint(f"mode IS NULL OR {_in('mode', 'chat_mode')}", name="mode_values"),
         CheckConstraint("length(trim(content)) > 0 AND length(content) <= 8000", name="content_length"),

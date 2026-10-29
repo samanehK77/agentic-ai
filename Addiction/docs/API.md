@@ -1,4 +1,4 @@
-# MindEvidence Lab API (Batch 06)
+# MindEvidence Lab API (Batch 07)
 
 Development-only HTTP API on `http://localhost:8001`. Since Batch 04 it needs a Google sign-in session; it is still plain HTTP and not production-ready (see [API_ACCESS_POLICY.md](API_ACCESS_POLICY.md)).
 All patients are fictional. Interactive documentation: <http://localhost:8001/docs> · machine-readable: <http://localhost:8001/openapi.json>.
@@ -50,7 +50,8 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 | `GET /api/sessions?patient_id=&limit=&offset=` | Your chat sessions, newest first |
 | `POST /api/sessions` | Create a chat session owned by you; 201 with a `Location` header; needs `X-CSRF-Token` |
 | `GET /api/sessions/{session_id}` | One of your chat sessions (404 for anyone else's) |
-| `GET /api/sessions/{session_id}/messages?limit=&offset=` | Messages of your session, oldest first (empty list for a new session; 404 for anyone else's) |
+| `GET /api/sessions/{session_id}/messages?limit=&offset=` | Messages of your session, oldest first (empty list for a new session; 404 for anyone else's). Assistant messages carry `answer`: the structured answer with citations and the chunks shown to the model |
+| `POST /api/sessions/{session_id}/messages` | Ask a question (`content`, `mode`) and get a structured, validated answer; 201. Needs `X-CSRF-Token`; optional `Idempotency-Key` |
 
 ### Administrator endpoints (Batch 05, read-only)
 
@@ -71,7 +72,7 @@ A chunk has `chunk_id`, `paper_id`, `ordinal`, `text`, `token_count`, `page_star
 
 `POST /api/retrieval/search` finds the research chunks most similar to a question (exact cosine search with pgvector). It needs a signed-in user and the `X-CSRF-Token` header (it is a POST). It returns **evidence only**: answer generation does not exist until Batch 07. See `docs/RETRIEVAL.md`.
 
-Body: `query` (1 to 1000 characters after trimming), `top_k` (1 to 20, default 5; other values are `422`, never clamped), `paper_id` (optional filter; `404` for an unknown id, `422` for a malformed one), `min_similarity` (optional, 0 to 1; default from `RETRIEVAL_MIN_SIMILARITY`, which is none).
+Body: `query` (1 to 1000 characters after trimming), `top_k` (1 to 20, default 5; other values are `422`, never clamped), `paper_id` (optional filter; `404` for an unknown id, `422` for a malformed one), `min_similarity` (optional, 0 to 1; default from `RETRIEVAL_MIN_SIMILARITY`, which is **0.45** unless set to another number or to `none`).
 
 Response: `request_id`, `model` (fingerprint of the embedding model, revision, dimension and normalization), `top_k`, `latency_ms`, `no_evidence` (true when nothing passed the threshold or matched) and `results`, best first:
 `chunk_id`, `paper_id`, `title`, `section_title` (null when unknown), `section_type` (`body` or `table_or_figure`), `page_start`, `page_end`, `text` (at most 250 tokens, **untrusted data**), `similarity` and `possible_injection`. `similarity = 1 - cosine distance`: a similarity score, not a probability or a confidence. No file names, paths or hashes are returned.
@@ -90,7 +91,42 @@ Only embedded chunks of type `body` or `table_or_figure` are searched; reference
 
 The query text is never logged (only request id, user id, `top_k`, result count and latency).
 
-Chat messages cannot be created yet; no endpoint writes them until Batches 07 and 08.
+### Asking a question (Batch 07)
+
+`POST /api/sessions/{session_id}/messages` answers a question about the session's synthetic patient and stores the question and the answer. How it works, what is validated and its limits: `docs/LLM.md`.
+
+Body: `content` (1 to 1000 characters after trimming) and `mode`: `general_knowledge` (no retrieval, no citations), `rag` (only from retrieved chunks above the similarity threshold) or `both` (evidence plus clearly separated general observations). Headers: `X-CSRF-Token` (required), `Idempotency-Key` (optional, 8 to 64 characters of `A-Z a-z 0-9 . _ -`): the same key with the same body returns the stored answer **without calling the model again** (response header `Idempotency-Replayed: true`); the same key with a different body is `409`. On any failure nothing is stored, so the same key can be retried.
+
+Response `201` (`AnswerOut`): `request_id`, `session_id`, `message_id`, `user_message_id`, `created_at`, `mode`, `no_evidence`, `content` (the assembled plain text), `sections[{kind, text, citations[{alias, chunk_id, quote, verified}]}]` (`kind` is `patient_fact`, `research_finding`, `general_knowledge`, `interpretation` or `withheld`), `citations[{citation_id (= chunk_id), alias, chunk_id, paper_id, source_title, section_title, page_start, page_end, quote, verified, stale}]`, `evidence[]` (every chunk considered: `alias`, `chunk_id`, `source_title`, `section_title`, `section_type`, pages, `text`, `similarity`, `cited`, `possible_injection`, `excluded_reason`, `stale`), `unsupported_claims[]`, `conflicting_evidence[]`, `limitations`, `safety {escalation, notice, flags}`, `generation {llm_called, model, prompt_version, latency_ms, prompt_tokens, completion_tokens, retries, repair_attempted, temperature, max_tokens}` and `trace[{type, label, detail, latency_ms}]`.
+
+- `verified` means the quote exists in the cited chunk, not that it supports the claim.
+- If no chunk reaches the threshold in `rag` or `both`, `no_evidence` is true, there are no citations and the **model is not called**.
+- A first-person crisis statement returns only the fixed safety notice (`safety.flags = ["personal_crisis_no_answer"]`), without retrieval or a model call.
+- Chunk text and the answer are untrusted data.
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 401 / 403 / 404 | `unauthorized` / `csrf_failed` / `not_found` | not signed in / bad CSRF header / unknown or foreign session |
+| 409 | `idempotency_conflict` | the key was used with a different request |
+| 422 | `validation_error` | bad `content`, `mode` or `Idempotency-Key` |
+| 429 | `rate_limited` | more than `ANSWER_RATE_LIMIT_PER_MINUTE` (default 10) questions per minute; `Retry-After` header |
+| 502 | `llm_bad_output` | the model's answer could not be used even after one repair attempt |
+| 503 | `llm_not_configured`, `llm_unavailable` | no API key / provider rate limit, server, authentication or balance problem (generic message, `Retry-After` for 429 and 5xx) |
+| 503 | `retrieval_unavailable`, `retrieval_not_ready`, `index_incompatible` | as for search |
+| 504 | `llm_timeout` | the provider did not answer in time |
+
+Example (PowerShell, with `$cookie` and `$me` from the examples above):
+
+```powershell
+$headers = @{ Cookie = $cookie; "X-CSRF-Token" = $me.csrf_token; "Idempotency-Key" = [guid]::NewGuid().ToString() }
+$session = Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/sessions -Headers $headers -ContentType "application/json" -Body '{"patient_id":"P-001"}'
+$body = '{"content":"Which medications are used to treat opioid addiction?","mode":"rag"}'
+$answer = Invoke-RestMethod -Method Post -Uri "http://localhost:8001/api/sessions/$($session.session_id)/messages" -Headers $headers -ContentType "application/json" -Body $body
+$answer.content
+$answer.citations | Select-Object alias, chunk_id, verified
+$answer.safety.flags
+```
+
 
 ## Examples (Windows PowerShell)
 
@@ -199,7 +235,8 @@ The full schemas are in `/openapi.json`. Main ones:
 - `HistoryItem`: `event_date`, `date_precision` (history events only), `source` (`history`, `use`, `intervention`, `progress`), `record_id`, `kind`, `summary`.
 - `PaperOut`: `paper_id`, `title`, `document_type`, `publisher`, `publication_year`, `source_note`, `ingest_status`, `created_at`. `publisher` and `publication_year` are the text `unknown` when not recorded.
 - `SessionOut`: `session_id`, `patient_id`, `title`, `owner_id` (the signed-in user's id), `created_at`.
-- `MessageOut`: `message_id`, `session_id`, `role`, `mode`, `content`, `created_at`.
+- `MessageOut`: `message_id`, `session_id`, `role`, `mode`, `content`, `created_at`, `answer` (assistant messages only: the structured answer, see above).
+- `MessageCreate` / `AnswerOut`: see "Asking a question".
 - `AdminPaperOut` / `AdminPaperDetail` / `ChunkOut`: see the administrator table above.
 - `MeOut`: `id`, `email`, `display_name`, `role` (`student` or `admin`), `csrf_token`. The Google subject id and Google tokens are never returned or stored.
 

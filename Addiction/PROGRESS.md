@@ -11,8 +11,8 @@ Living log of where the project stands. Update it at the end of every batch.
 | 03 | FastAPI backend | Done |
 | 04 | Google sign-in | Done (real login tested by the user) |
 | 05 | Document ingestion | Done |
-| 06 | pgvector retrieval | Done (committed locally; not pushed) |
-| 07 | DeepSeek answers with citations | Not started |
+| 06 | pgvector retrieval | Done |
+| 07 | DeepSeek answers with citations | Done (committed locally; not pushed; live DeepSeek call not made) |
 | 08 | LangGraph orchestration | Not started |
 | 09 | Observability, audit, and Gmail reports | Not started |
 | 10 | Integration and classroom demo | Not started |
@@ -28,6 +28,8 @@ Living log of where the project stands. Update it at the end of every batch.
 - Batch 05: PDF ingestion pipeline (`python -m app.ingestion`): five registered PDFs extracted with PyMuPDF, cleaned, chunked to about 220 tokens and stored (migration 0004: ingestion fields on `papers`, `paper_chunks`, `ingestion_runs`); admin-only read endpoints; `docs/INGESTION.md`. 488 tests passing at the last full run.
 
 - Batch 06: embeddings with all-MiniLM-L6-v2 (migration 0005, pgvector, exact search, no ANN index), `python -m app.embedding`, `POST /api/retrieval/search`, real evidence in the Evidence Inspector, `python -m app.eval_retrieval`, `docs/RETRIEVAL.md`. 585 tests (584 passed with torch installed, 1 skipped).
+
+- Batch 07: `POST /api/sessions/{id}/messages` (three modes, structured answers, server-side citation and quote validation, safety layer, idempotency), migration 0006, `app/llm/` (provider interface, DeepSeek client, versioned prompts), frontend answers with citation badges, `python -m app.eval_answers`, `python -m app.llm_smoke`, `docs/LLM.md`. 816 tests (815 passed, 1 skipped) with torch installed.
 
 ## Open questions / decisions
 - Resolved in Batch 05: the Cochrane review named in SPEC.md is now the fifth document; the psychosocial-interventions review stays as an additional document.
@@ -113,7 +115,23 @@ Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_in
 - **Suspicious:** 14 of the 95 chunks in the top 5 of all queries have fewer than 40 tokens; one 27-token table chunk of the psychosocial review (`...-c0050`) shows up for three different queries. Out-of-domain queries still return chunks (similarity 0.18 to 0.28): a threshold is needed in Batch 07 (the gap above suggests somewhere around 0.4 to 0.55, to be checked with more queries).
 - **Browser check:** the signed-out state, `?source=mock` and the rendering of real chunks (a synthetic hit with an `<img onerror>` payload showed as plain text, the warning badge and the "retrieved" evidence label appear, the placeholder reply has no citations) were verified in the browser pane. A real search from the page was **not** verified end to end because it needs a Google sign-in; the endpoint itself is covered by 44 API tests with a fake embedder and by the evaluation run through the same search code.
 
+## Batch 07 decisions
+- **The model writes; the backend decides.** Aliases S1..Sn map back to real chunk ids, quotes are checked against the chunk text (`verified` = the quote exists, not that it supports the claim), research findings without a valid citation become `unsupported_claims`, mode rules are enforced (`rag` rejects general knowledge, `general_knowledge` forbids citations), the assembled text is limited to 8000 characters.
+- **No evidence means no model call:** in `rag` and `both`, if no chunk reaches the threshold the answer is a fixed "no evidence" message (also in `both`; a labelled general-knowledge fallback was not added).
+- **Threshold 0.45** (`RETRIEVAL_MIN_SIMILARITY`, `none` disables it): midpoint of the Batch 06 numbers (in-domain top-1 minimum 0.63, out-of-domain maximum 0.28). Also the new default of the search endpoint. Very small sample.
+- **Safety layer is heuristic:** risk screen on the question (fixed notice, no phone numbers), first-person crisis statements get only the notice and **no model call** (my addition), dosing instructions and individual treatment directives are withheld. Diagnosis statements are not detected deterministically. Documented in `docs/LLM.md`.
+- **Prompt:** one system message with static rules from versioned files and one user message with delimited blocks; untrusted text is neutralized and never in the system message; `possible_injection` chunks stay out of the prompt; budget 6000 estimated tokens.
+- **One transaction, idempotency:** advisory lock per (session, key); a replay returns the stored answer with no model call and no rate-limit charge; a failure stores nothing so the key can be retried. GET messages returns every chunk shown to the model for an answer (not only the cited ones), joined at read time with a `stale` flag.
+- **DeepSeek docs check:** the official pages describe `thinking` on by default (the client disables it), JSON mode needs the word "json" in the prompt and can return empty or truncated output, and list model names `deepseek-flash` / `deepseek-v4-pro` but not `deepseek-chat` (still the configured default). Base URL and Bearer auth follow the OpenAI convention. **Nothing was verified against the live API.**
+- Correction to a note in the Batch 07 prompt: Batch 06 had already been pushed (`c27c100`).
+- Test changes to older tests (not weakened): the OpenAPI list has the new endpoint; the test environment sets `RETRIEVAL_MIN_SIMILARITY=none` and an empty `DEEPSEEK_API_KEY` so no test can use a developer's real settings.
+
+## Batch 07 results on this machine
+- **Pipeline check (`python -m app.eval_answers`, real database and real retrieval, scripted mock model):** 12 checks, 0 failed. Citation validity 1.00, quote verified 0.86, unsupported 0.22 (the scripted "sloppy" case), no-evidence correct 1.00, safety behaviour 1.00. The out-of-domain cooking question was stopped by the threshold without a model call. This tests the plumbing and enforcement, **not model quality**.
+- **Not done:** no live DeepSeek call (needs your approval and a key in `.env`); no end-to-end answer through the browser (needs a Google sign-in and the live call). Browser check of the answer rendering (with synthetic data): sections, citation badges and the unverified marker, escalation alert, grouped evidence, quote highlight; a script payload in answer text stayed inert; `?source=mock` and "New conversation" work.
+
 ## Known issues
+- Answers: the deterministic checks are keyword heuristics (false positives and misses); diagnosis statements are not detected; retrieval uses the question only, so follow-up questions may retrieve poorly; no per-day spending cap.
 - Retrieval: short table/flowchart fragments from ingestion still rank high for some queries; no reranking or keyword/hybrid search; the evaluation set is tiny.
 - Ingestion heuristics are imperfect (see `docs/INGESTION.md`): the Intervention Guide's flowcharts produce many tiny fragments, some Cochrane running-header text survives as short chunks, and section titles can be noisy.
 - The symbolic-link rejection test is skipped on this Windows machine because creating symlinks needs extra permission; the check itself is in `resolve_pdf`.
@@ -130,4 +148,4 @@ Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_in
 4. `.env` must contain the database settings, `APP_ENV=development`, `SESSION_SECRET` (32+ characters) and the Google variables from `docs/GOOGLE_AUTH_SETUP.md` (git-ignored, never committed). Always open `http://localhost:8000` (not 127.0.0.1).
 
 ## Next step
-Batch 07: DeepSeek answers with citations (backend only, behind a provider interface; use a similarity threshold and keep citations pointing only to retrieved chunks).
+Test the live answer flow (add `DEEPSEEK_API_KEY` to `.env`, approve one `python -m app.llm_smoke --live`), then Batch 08: LangGraph orchestration (including the optional Auto mode).

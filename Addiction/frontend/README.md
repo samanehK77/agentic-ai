@@ -97,3 +97,9 @@ The field mapping is in `docs/FRONTEND_INTEGRATION_PLAN.md`.
 
 In **RAG** and **Both** mode the question is sent to `POST /api/retrieval/search` and the Evidence Inspector shows the real chunks with their "cosine similarity". Answer generation arrives in Batch 07, so the reply is an explicit placeholder with **no citations**; General Knowledge replies stay fixed mock text. A chunk flagged `possible_injection` shows a warning badge. If search is not ready the page shows the API's message (for example "run python -m app.embedding"). `?source=mock` still shows mock evidence. See `docs/FRONTEND_INTEGRATION_PLAN.md` and `docs/RETRIEVAL.md`.
 
+## Answers (Batch 07)
+
+Outside `?source=mock` every question goes to `POST /api/sessions/{id}/messages` (one chat session per patient conversation, a fresh `Idempotency-Key` per submit, "New conversation" button, the newest conversation is resumed when you select a patient). Answers show sections (patient fact, research finding, model interpretation, general knowledge), citation badges that open the chunk and highlight the quote in the Evidence Inspector, unverified citations, unsupported claims, conflicting evidence, retrieved-but-not-cited chunks and the safety notice. `?source=mock` still shows fixed mock replies. See `docs/LLM.md`.
+
+Run the frontend without browser caching: `python serve.py` (instead of `python -m http.server 8000`); with a normal server use Ctrl+Shift+R after updates.
+

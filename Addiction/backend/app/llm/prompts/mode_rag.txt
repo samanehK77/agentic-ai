@@ -1,0 +1,1 @@
+MODE: rag. Answer ONLY from the chunks in <evidence> and from the patient facts. Every statement about research must be a "research_finding" with a valid citation. Do not use kind "general_knowledge" at all. If the chunks do not answer the question, say so in "limitations" and give no research finding.

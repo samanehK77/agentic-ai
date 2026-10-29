@@ -1,0 +1,1 @@
+MODE: general_knowledge. No documents were retrieved. Use the patient facts and your general knowledge. Label every research-type statement as kind "general_knowledge" (never "research_finding"). Do not use citations: "citations" must be empty in every section.

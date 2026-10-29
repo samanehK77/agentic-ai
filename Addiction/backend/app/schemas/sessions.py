@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.schemas.answers import AnswerOut
 from db.models import VOCAB
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
@@ -35,3 +36,4 @@ class MessageOut(BaseModel):
     mode: Literal[*VOCAB["chat_mode"]] | None
     content: str
     created_at: datetime
+    answer: AnswerOut | None = Field(default=None, description="For assistant messages: the structured answer with its citations and evidence.")
