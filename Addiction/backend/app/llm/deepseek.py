@@ -8,6 +8,7 @@
 """
 import logging
 import random
+import re
 import time
 from collections.abc import Callable
 
@@ -21,6 +22,14 @@ logger = logging.getLogger("mindevidence.llm")
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_BACKOFF_SECONDS = 20.0
+_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think>.*\Z", re.DOTALL | re.IGNORECASE)
+
+
+def strip_think(text: str) -> str:
+    """Some local models put their reasoning in <think>...</think> inside the content. It is never an answer: drop it
+    (an unclosed block, from a cut-off reply, is dropped to the end)."""
+    return _THINK_OPEN.sub("", _THINK_BLOCK.sub("", text)).strip()
 
 
 class DeepSeekClient:
@@ -37,7 +46,7 @@ class DeepSeekClient:
         return self._settings.configured
 
     def complete(self, messages: list[LLMMessage], *, json_mode: bool = True, max_tokens: int | None = None,
-                 temperature: float | None = None) -> LLMResult:
+                 temperature: float | None = None, timeout: float | None = None) -> LLMResult:
         settings = self._settings
         if not settings.configured:
             raise LLMNotConfigured("The language model is not configured.")
@@ -60,9 +69,18 @@ class DeepSeekClient:
 
         attempts = settings.max_retries + 1
         last_failure = "unavailable"
+        budget_end = None if timeout is None else time.monotonic() + timeout
         for attempt in range(attempts):
+            per_call = settings.timeout_seconds
+            if budget_end is not None:
+                remaining = budget_end - time.monotonic()
+                if remaining <= 0:
+                    last_failure = "timeout"
+                    break
+                per_call = min(per_call, remaining)
             try:
-                response = self._http.post("/chat/completions", json=payload, headers=headers)
+                response = self._http.post("/chat/completions", json=payload, headers=headers,
+                                           timeout=httpx.Timeout(per_call))
             except httpx.TimeoutException:
                 last_failure = "timeout"
             except httpx.TransportError:
@@ -87,10 +105,12 @@ class DeepSeekClient:
         try:
             body = response.json()
             choice = body["choices"][0]
-            content = choice["message"].get("content")
+            content = choice["message"].get("content")  # `reasoning` / `reasoning_content` fields are never read
             finish = str(choice.get("finish_reason") or "")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             raise LLMBadOutput("The language model returned an unreadable response.") from None
+        if isinstance(content, str):
+            content = strip_think(content)
         if not isinstance(content, str) or not content.strip():
             raise LLMBadOutput("The language model returned an empty answer.")
         if finish == "length":

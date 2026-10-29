@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.schemas.trace import ClassificationOut, EvidenceAssessmentOut, ExecutionTraceEvent, RetrievalDecisionOut
 from db.models import VOCAB
 
 Content = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
@@ -113,4 +114,11 @@ class AnswerOut(BaseModel):
     limitations: str
     safety: SafetyOut
     generation: GenerationOut
-    trace: list[TraceEvent]
+    trace: list[TraceEvent] = Field(description="The short user-facing activity list (unchanged since Batch 07).")
+    # Batch 08 (additive): what the workflow decided and did. Statistics only; null for answers stored before the graph.
+    classification: ClassificationOut | None = None
+    retrieval_decision: RetrievalDecisionOut | None = None
+    evidence_assessment: EvidenceAssessmentOut | None = None
+    execution_trace: list[ExecutionTraceEvent] | None = Field(
+        default=None, description="One entry per workflow node, in graph order; nodes that did not run are 'skipped' with the reason.")
+    graph_version: str | None = None

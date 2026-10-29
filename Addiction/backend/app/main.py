@@ -9,11 +9,12 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.engine import Engine
 
-from app.config import Settings, load_settings
+from app.config import Settings, StartupError, load_settings
 from app.errors import install_error_handlers
 from app.answers.service import Pipeline
 from app.deps import current_user, require_role
 from app.llm.base import BaseLLMClient
+from app.llm.concurrency import ConcurrencyLimitedClient
 from app.llm.deepseek import DeepSeekClient
 from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMiddleware
 from app.schemas.common import ERROR_401
@@ -67,7 +68,11 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
     app.state.embedder_provider = EmbedderProvider.fixed(embedder) if embedder else EmbedderProvider()
     app.state.rate_limiter = SlidingWindowLimiter(settings.retrieval_rate_limit_per_minute)
     # The LLM client never makes a network call at construction; without a key it simply reports configured=False.
-    app.state.llm_client = llm_client or DeepSeekClient(settings.llm)
+    if settings.graph_total_timeout_seconds <= settings.llm.timeout_seconds:
+        raise StartupError("GRAPH_TOTAL_TIMEOUT_SECONDS must be larger than LLM_TIMEOUT_SECONDS.")
+    # A local model serves one request at a time: model calls queue behind a small semaphore (LLM_MAX_CONCURRENCY).
+    app.state.llm_client = ConcurrencyLimitedClient(
+        llm_client or DeepSeekClient(settings.llm), settings.llm.max_concurrency, settings.llm.queue_wait_seconds)
     app.state.answer_pipeline = Pipeline(settings, app.state.llm_client, app.state.embedder_provider,
                                          SlidingWindowLimiter(settings.answer_rate_limit_per_minute))
     if settings.retrieval_warmup and embedder is None:
@@ -80,7 +85,7 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", REQUEST_ID_HEADER, "X-CSRF-Token", "Idempotency-Key"],
-        expose_headers=[REQUEST_ID_HEADER],
+        expose_headers=[REQUEST_ID_HEADER, "Retry-After"],  # the browser may read the retry hint of a 429/503
         allow_credentials=True,
     )
     app.add_middleware(NoStoreAuthMiddleware)

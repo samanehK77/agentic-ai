@@ -105,8 +105,86 @@ export function evidenceFromAnswer(answer) {
   });
 }
 
-// Trace events of an answer -> timeline items (validation and safety use the generic "info" icon).
+const NODE_LABELS = {
+  validate_inputs: "Validate input",
+  safety_screen: "Safety screen",
+  classify_intent: "Classify question",
+  decide_retrieval: "Decide retrieval",
+  execute_retrieval: "Search documents",
+  assess_evidence: "Assess evidence",
+  generate_answer: "Generate answer",
+  validate_citations: "Check citations",
+  safety_check: "Safety check",
+  format_output: "Assemble response",
+};
+
+const humanize = (code) => String(code || "").replaceAll("_", " ");
+
+// One line of detail per workflow node. Every value comes from the backend's statistics-only trace (no question or chunk text).
+function nodeDetail(evt, answer) {
+  if (evt.status === "skipped") return `skipped: ${evt.reason || humanize(evt.reason_code)}`;
+  const counts = evt.counts || {};
+  const parts = [];
+  switch (evt.node) {
+    case "classify_intent":
+      parts.push(humanize(answer.classification?.label || evt.reason_code));
+      if (evt.status === "ended") parts.push(humanize(evt.reason_code));
+      break;
+    case "execute_retrieval":
+      parts.push(`${counts.chunks ?? 0} chunk(s)`);
+      break;
+    case "assess_evidence": {
+      const level = answer.evidence_assessment?.level;
+      parts.push(evt.status === "ended" ? "evidence insufficient: no model call" : `evidence ${level || "checked"}`);
+      if (evt.reason_code === "insufficient_retry_follow_up") parts.push("searching again with the previous question");
+      break;
+    }
+    case "generate_answer":
+      parts.push(`${counts.prompt_tokens ?? 0} prompt / ${counts.completion_tokens ?? 0} completion tokens`);
+      break;
+    case "validate_citations":
+      parts.push(`${counts.verified ?? 0} of ${counts.citations ?? 0} quote(s) verified`, `${counts.unsupported_claims ?? 0} unsupported claim(s)`);
+      break;
+    default:
+      if (evt.reason) parts.push(evt.reason);
+  }
+  if (evt.duration_ms != null) parts.push(`${evt.duration_ms} ms`);
+  return parts.filter(Boolean).join(" · ");
+}
+
+// Execution trace of the answer workflow (Batch 08) -> timeline items: a summary line, then one item per node
+// (nodes that did not run are shown as skipped, with the reason).
+function workflowToEvents(answer, patientId) {
+  const trace = answer.execution_trace;
+  const total = trace.reduce((sum, evt) => sum + (evt.duration_ms || 0), 0);
+  const route = answer.retrieval_decision
+    ? (answer.retrieval_decision.needed ? "documents searched" : "documents not searched")
+    : "ended before retrieval";
+  const items = [{
+    id: `evt-${answer.message_id}-summary`,
+    type: "info",
+    status: "ok",
+    label: "Answer workflow",
+    detail: [humanize(answer.classification?.label), route, `${total} ms in the workflow`].filter(Boolean).join(" · "),
+    time: new Date(Date.parse(answer.created_at) || Date.now()).toISOString(),
+    patient_id: patientId,
+  }];
+  trace.forEach((evt, i) => items.push({
+    id: `evt-${answer.message_id}-${i}`,
+    type: evt.node === "execute_retrieval" ? "retrieval" : evt.node === "generate_answer" ? "generation" : "info",
+    status: evt.status,
+    label: NODE_LABELS[evt.node] || evt.node,
+    detail: nodeDetail(evt, answer),
+    time: evt.started_at || new Date(Date.parse(answer.created_at) || Date.now()).toISOString(),
+    patient_id: patientId,
+  }));
+  return items;
+}
+
+// Trace events of an answer -> timeline items (validation and safety use the generic "info" icon). Answers stored before
+// Batch 08 have no execution trace and keep the short Batch 07 list.
 export function traceToEvents(answer, patientId) {
+  if (Array.isArray(answer.execution_trace) && answer.execution_trace.length) return workflowToEvents(answer, patientId);
   const base = Date.parse(answer.created_at) || Date.now();
   return answer.trace.map((evt, i) => ({
     id: `evt-${answer.message_id}-${i}`,

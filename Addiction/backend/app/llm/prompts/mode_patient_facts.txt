@@ -1,0 +1,1 @@
+PATIENT-RECORD QUESTION: this question asks about the fictional patient record itself. No documents were retrieved for it. Answer ONLY from <patient_facts>, using kind "patient_fact" sections. Do not state research findings, do not cite anything and do not use outside knowledge. If the patient facts do not contain the answer, say so in "limitations".

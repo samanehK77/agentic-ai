@@ -7,15 +7,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
-def lock_key(db: Session, session_id: UUID, key: str) -> None:
-    """Transaction-scoped advisory lock: a second request with the same key waits here until the first one has
-    committed (then it finds the stored reply) or rolled back (then it may try itself)."""
-    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"{session_id}:{key}"})
-
-
 def find_by_key(db: Session, session_id: UUID, key: str) -> dict | None:
     row = db.execute(text("""
-        SELECT message_id, session_id, mode, content, created_at, response, generation, request_hash
+        SELECT message_id, session_id, mode, content, created_at, response, generation, request_hash, trace, graph_version
         FROM chat_messages WHERE session_id = :s AND idempotency_key = :k"""), {"s": session_id, "k": key}).mappings().first()
     return dict(row) if row else None
 
@@ -29,7 +23,8 @@ def recent_turns(db: Session, session_id: UUID, limit: int) -> list[tuple[str, s
 
 
 def insert_turn(db: Session, *, session_id: UUID, mode: str, question: str, answer_content: str, response: dict,
-                generation: dict, key: str | None, request_hash: str) -> dict:
+                generation: dict, key: str | None, request_hash: str, trace: list | None = None,
+                graph_version: str | None = None) -> dict:
     """Inserts the user message and the assistant message (explicit clock_timestamp() so their order is stable even
     inside one transaction). Returns the assistant row."""
     user_id = db.execute(text("""
@@ -37,11 +32,13 @@ def insert_turn(db: Session, *, session_id: UUID, mode: str, question: str, answ
         VALUES (:s, 'user', :m, :c, clock_timestamp()) RETURNING message_id"""),
         {"s": session_id, "m": mode, "c": question}).scalar_one()
     row = db.execute(text("""
-        INSERT INTO chat_messages (session_id, role, mode, content, response, generation, idempotency_key, request_hash, created_at)
-        VALUES (:s, 'assistant', :m, :c, CAST(:r AS jsonb), CAST(:g AS jsonb), :k, :h, clock_timestamp())
-        RETURNING message_id, session_id, mode, content, created_at, response, generation"""),
+        INSERT INTO chat_messages (session_id, role, mode, content, response, generation, idempotency_key, request_hash, trace,
+                                   graph_version, created_at)
+        VALUES (:s, 'assistant', :m, :c, CAST(:r AS jsonb), CAST(:g AS jsonb), :k, :h, CAST(:t AS jsonb), :v, clock_timestamp())
+        RETURNING message_id, session_id, mode, content, created_at, response, generation, trace, graph_version"""),
         {"s": session_id, "m": mode, "c": answer_content, "r": json.dumps(response), "g": json.dumps(generation),
-         "k": key, "h": request_hash if key else None}).mappings().one()
+         "k": key, "h": request_hash if key else None, "t": None if trace is None else json.dumps(trace),
+         "v": graph_version}).mappings().one()
     result = dict(row)
     result["user_message_id"] = user_id
     return result
@@ -57,3 +54,11 @@ def chunk_rows(db: Session, chunk_ids: list[str]) -> dict[str, dict]:
         FROM paper_chunks c JOIN papers p ON p.paper_id = c.paper_id WHERE c.chunk_id = ANY(:ids)"""),
         {"ids": chunk_ids}).mappings()
     return {row["chunk_id"]: dict(row) for row in rows}
+
+
+def get_trace(db: Session, session_id: UUID, message_id: UUID) -> dict | None:
+    """The stored execution trace of one assistant message of the session (None if there is no such message)."""
+    row = db.execute(text("""
+        SELECT message_id, graph_version, trace FROM chat_messages
+        WHERE session_id = :s AND message_id = :m AND role = 'assistant'"""), {"s": session_id, "m": message_id}).mappings().first()
+    return dict(row) if row else None

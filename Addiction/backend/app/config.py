@@ -37,6 +37,8 @@ class Settings:
     retrieval_warmup: bool = False
     answer_rate_limit_per_minute: int = 10
     answer_top_k: int = 5
+    graph_total_timeout_seconds: float = 480.0  # the whole answer workflow; must exceed LLM_TIMEOUT_SECONDS
+    graph_retrieval_timeout_seconds: float = 60.0
     llm: LLMSettings = field(default_factory=LLMSettings)
 
     @property
@@ -74,6 +76,19 @@ def _retrieval_threshold() -> float | None:
         raise StartupError("RETRIEVAL_MIN_SIMILARITY must be a number between 0 and 1, or 'none'.") from None
     if not 0 <= value <= 1:
         raise StartupError("RETRIEVAL_MIN_SIMILARITY must be a number between 0 and 1.")
+    return value
+
+
+def _seconds(name: str, default: float, low: float = 1, high: float = 3600) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        raise StartupError(f"{name} must be a number of seconds.") from None
+    if not low <= value <= high:
+        raise StartupError(f"{name} must be between {low:g} and {high:g} seconds.")
     return value
 
 
@@ -138,5 +153,7 @@ def load_settings() -> Settings:
         retrieval_warmup=_flag("RETRIEVAL_WARMUP"),
         answer_rate_limit_per_minute=_positive_int("ANSWER_RATE_LIMIT_PER_MINUTE", 10),
         answer_top_k=min(_positive_int("ANSWER_TOP_K", 5), 20),
+        graph_total_timeout_seconds=_seconds("GRAPH_TOTAL_TIMEOUT_SECONDS", 480.0),
+        graph_retrieval_timeout_seconds=_seconds("GRAPH_RETRIEVAL_TIMEOUT_SECONDS", 60.0),
         llm=_llm_settings(),
     )

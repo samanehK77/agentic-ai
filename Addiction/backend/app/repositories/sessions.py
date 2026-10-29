@@ -10,6 +10,7 @@ SESSION_COLUMNS = (ChatSession.session_id, ChatSession.patient_id, ChatSession.t
 MESSAGE_COLUMNS = (
     ChatMessage.message_id, ChatMessage.session_id, ChatMessage.role, ChatMessage.mode,
     ChatMessage.content, ChatMessage.created_at, ChatMessage.response, ChatMessage.generation,
+    ChatMessage.trace, ChatMessage.graph_version,
 )
 
 

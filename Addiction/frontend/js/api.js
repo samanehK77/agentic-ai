@@ -9,7 +9,7 @@
 // Demo states (?state=...): ready | loading | empty | error | no-evidence
 
 import { PATIENTS, CHUNKS, REPLIES, TIMELINE_STEPS } from "../data/mock-data.js";
-import { API_BASE_URL } from "./config.js";
+import { ANSWER_TIMEOUT_MS, API_BASE_URL } from "./config.js";
 import { patientDetail, patientListItem } from "./adapters.js";
 
 // Thrown when the API answers 401, so the UI can show the signed-out state instead of an error.
@@ -17,10 +17,11 @@ export class AuthError extends Error {}
 
 // Any other API failure: carries the HTTP status and the API's error code (for example rate_limited, llm_timeout).
 export class ApiError extends Error {
-  constructor(message, status, code) {
+  constructor(message, status, code, retryAfter = null) {
     super(message);
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter; // seconds, from the Retry-After header (429 and 503), or null
   }
 }
 
@@ -57,22 +58,30 @@ export function isMockSource() {
   return new URLSearchParams(window.location.search).get("source") === "mock";
 }
 
-async function request(path, { method = "GET", body, headers: extraHeaders = {} } = {}) {
+async function request(path, { method = "GET", body, headers: extraHeaders = {}, timeoutMs = 0 } = {}) {
   const headers = { Accept: "application/json", ...extraHeaders };
   if (method !== "GET") {
     headers["X-CSRF-Token"] = csrfToken || "";
     if (body !== undefined) headers["Content-Type"] = "application/json";
   }
   let response;
+  const controller = new AbortController();
+  const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
       credentials: "include",
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
+    if (controller.signal.aborted) {
+      throw new ApiError("The answer took longer than the browser waits. The server may still be working: try again in a minute.", 0, "client_timeout");
+    }
     throw new Error(`Could not reach the API at ${API_BASE_URL}. Is it running?`);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   if (response.status === 401) throw new AuthError("Not signed in.");
   if (!response.ok) {
@@ -85,7 +94,8 @@ async function request(path, { method = "GET", body, headers: extraHeaders = {} 
     } catch {
       // keep the generic message
     }
-    throw new ApiError(message, response.status, code);
+    const retryAfter = Number(response.headers.get("Retry-After")) || null;
+    throw new ApiError(message, response.status, code, retryAfter);
   }
   return response.status === 204 ? null : response.json();
 }
@@ -172,6 +182,7 @@ export async function postMessage(sessionId, { content, mode, key }) {
     method: "POST",
     body: { content, mode },
     headers: { "Idempotency-Key": key },
+    timeoutMs: ANSWER_TIMEOUT_MS,
   });
 }
 

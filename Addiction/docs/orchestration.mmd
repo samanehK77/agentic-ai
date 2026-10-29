@@ -1,0 +1,37 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	validate_inputs(validate_inputs)
+	safety_screen(safety_screen)
+	classify_intent(classify_intent)
+	decide_retrieval(decide_retrieval)
+	execute_retrieval(execute_retrieval)
+	assess_evidence(assess_evidence)
+	generate_answer(generate_answer)
+	validate_citations(validate_citations)
+	safety_check(safety_check)
+	format_output(format_output)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> validate_inputs;
+	assess_evidence -.-> execute_retrieval;
+	assess_evidence -.-> format_output;
+	assess_evidence -.-> generate_answer;
+	classify_intent -.-> decide_retrieval;
+	classify_intent -.-> format_output;
+	decide_retrieval -.-> execute_retrieval;
+	decide_retrieval -.-> generate_answer;
+	execute_retrieval --> assess_evidence;
+	generate_answer --> validate_citations;
+	safety_check --> format_output;
+	safety_screen -.-> classify_intent;
+	safety_screen -.-> format_output;
+	validate_citations --> safety_check;
+	validate_inputs --> safety_screen;
+	format_output --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

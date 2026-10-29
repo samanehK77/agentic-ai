@@ -40,6 +40,13 @@ class LLMUnavailable(LLMError):
         self.retry_after = retry_after
 
 
+class LLMBusy(LLMUnavailable):
+    """Another question is using the model and no slot became free in time (local models serve one request at a time)."""
+
+    def __init__(self, retry_after: int = 30):
+        super().__init__("The language model is busy with another question.", retry_after=retry_after)
+
+
 class LLMBadOutput(LLMError):
     """The provider answered, but with empty, truncated or unusable output."""
 
@@ -48,5 +55,6 @@ class BaseLLMClient(Protocol):
     configured: bool
 
     def complete(self, messages: list[LLMMessage], *, json_mode: bool = True, max_tokens: int | None = None,
-                 temperature: float | None = None) -> LLMResult:
+                 temperature: float | None = None, timeout: float | None = None) -> LLMResult:
+        """`timeout` caps the WHOLE call including retries (the workflow's remaining time); None = the configured timeout."""
         ...

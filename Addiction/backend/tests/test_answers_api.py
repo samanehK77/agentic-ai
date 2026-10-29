@@ -15,7 +15,8 @@ PAPER = "test-ans-a"
 QUESTION = "alpha question about heavy drinking"
 ANSWER_KEYS = {"request_id", "session_id", "message_id", "user_message_id", "created_at", "mode", "no_evidence", "content",
                "sections", "citations", "evidence", "unsupported_claims", "conflicting_evidence", "limitations", "safety",
-               "generation", "trace"}
+               "generation", "trace", "classification", "retrieval_decision", "evidence_assessment", "execution_trace",
+               "graph_version"}  # the last five are Batch 08 additions
 
 
 def messages(env, session_id):
@@ -193,7 +194,9 @@ def test_dosing_and_treatment_directives_are_withheld(answer_env, answers_corpus
                          section("interpretation", "He should be prescribed acamprosate."),
                          section("research_finding", "A fine finding.", ("S1", "placebo in trials"))])
     env = answer_env(scripted(reply))
-    body = env.ask(env.new_session(), "What dose of naltrexone should he take? alpha", "rag").json()
+    # Batch 08: a direct dose question is now stopped before the model (see test_graph_routing). Here the question is an
+    # ordinary research question and the scripted model misbehaves on its own: the OUTPUT safety layer must still withhold it.
+    body = env.ask(env.new_session(), QUESTION, "rag").json()
     assert [s["kind"] for s in body["sections"]] == ["withheld", "withheld", "research_finding"]
     assert body["sections"][0]["text"] == WITHHELD_NOTE
     assert "50 mg" not in body["content"] and "prescribed" not in body["content"]

@@ -10,7 +10,6 @@ export function renderChat(state, actions) {
   const input = document.getElementById("chat-input");
   const send = document.getElementById("chat-send");
   const context = document.getElementById("chat-context");
-  const status = document.getElementById("chat-status");
 
   const patient = state.patients.items.find((p) => p.id === state.selectedId);
   const ready = state.patient.status === "ready" && Boolean(patient);
@@ -26,8 +25,7 @@ export function renderChat(state, actions) {
   input.disabled = disabled;
   send.disabled = disabled;
   input.placeholder = ready ? "Ask a question about this synthetic case…" : "Select a patient to start";
-  const live = state.auth.status !== "mock";
-  status.textContent = state.sending ? (live ? "Generating the answer… this can take a few seconds." : "Waiting for a mock reply…") : "";
+  updateChatStatus(state);
 
   const messages = (state.selectedId && state.messages[state.selectedId]) || [];
 
@@ -48,6 +46,20 @@ export function renderChat(state, actions) {
     log.scrollTop = log.scrollHeight;
   }
   if (messages.length === 0) log.replaceChildren(emptyHint(ready));
+}
+
+// The line under the chat box. While a real answer is being prepared it counts the seconds: a local model can take minutes.
+export function updateChatStatus(state) {
+  const status = document.getElementById("chat-status");
+  if (!status) return;
+  if (!state.sending) {
+    status.textContent = "";
+  } else if (state.auth.status === "mock") {
+    status.textContent = "Waiting for a mock reply…";
+  } else {
+    const seconds = state.sendingSince ? Math.max(0, Math.floor((Date.now() - state.sendingSince) / 1000)) : 0;
+    status.textContent = `Generating the answer… ${seconds} s. A local model can take a few minutes; please keep this page open.`;
+  }
 }
 
 function emptyHint(ready) {

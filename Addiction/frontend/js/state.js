@@ -13,6 +13,7 @@ export const state = {
   messages: {}, // { [patientId]: [{ role, text, citations?, mode?, kind?, answer? }] }
   sessions: {}, // { [patientId]: { id } }: the chat session in use for each patient (null id = start a new one)
   sending: false,
+  sendingSince: null, // Date.now() of the question being answered (drives the elapsed-seconds counter)
   lastQuestion: null,
   evidence: { status: "idle", chunks: [], error: null }, // idle | ready | no-evidence | error
   activeChunk: { status: "idle", data: null, error: null }, // idle | loading | ready | error

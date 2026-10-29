@@ -36,6 +36,8 @@ class LLMSettings:
     thinking: str = "disabled"  # "disabled" sends thinking: {type: disabled}; "omit" sends nothing
     reasoning_effort: str = ""  # "" sends nothing; none|low|medium|high sends reasoning_effort (for example Ollama: none)
     context_token_budget: int = 6000
+    max_concurrency: int = 1  # model calls in flight at once (a local model serves one request at a time)
+    queue_wait_seconds: float = 120.0  # how long a call may wait for a free slot before the API answers "busy"
 
     @property
     def local(self) -> bool:
@@ -60,11 +62,21 @@ def _number(name: str, default: float, low: float, high: float, integer: bool = 
     return value
 
 
+def _first_env(*names: str) -> tuple[str, str]:
+    """(value, name) of the first variable that is set. The neutral LLM_* names win over the older DEEPSEEK_* names."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value, name
+    return "", names[-1]
+
+
 def load_llm_settings() -> LLMSettings:
-    base_url = os.environ.get("DEEPSEEK_BASE_URL", "").strip() or DEFAULT_BASE_URL
+    base_url, base_name = _first_env("LLM_BASE_URL", "DEEPSEEK_BASE_URL")
+    base_url = base_url or DEFAULT_BASE_URL
     # Remote providers must use https. Plain http is accepted only for this machine (a local model server).
     if not (base_url.startswith("https://") or (base_url.startswith("http://") and is_local_url(base_url))):
-        raise LLMConfigError("DEEPSEEK_BASE_URL must start with https:// (http:// is allowed only for localhost or 127.0.0.1).")
+        raise LLMConfigError(f"{base_name} must start with https:// (http:// is allowed only for localhost or 127.0.0.1).")
     thinking = os.environ.get("LLM_THINKING", "").strip().lower() or "disabled"
     if thinking not in ("disabled", "omit"):
         raise LLMConfigError("LLM_THINKING must be 'disabled' or 'omit'.")
@@ -72,9 +84,9 @@ def load_llm_settings() -> LLMSettings:
     if effort not in ("", "omit", "none", "low", "medium", "high"):
         raise LLMConfigError("LLM_REASONING_EFFORT must be omit, none, low, medium or high.")
     return LLMSettings(
-        api_key=os.environ.get("DEEPSEEK_API_KEY", "").strip(),
+        api_key=_first_env("LLM_API_KEY", "DEEPSEEK_API_KEY")[0],
         base_url=base_url.rstrip("/"),
-        model=os.environ.get("DEEPSEEK_MODEL", "").strip() or DEFAULT_MODEL,
+        model=_first_env("LLM_MODEL", "DEEPSEEK_MODEL")[0] or DEFAULT_MODEL,
         timeout_seconds=_number("LLM_TIMEOUT_SECONDS", 30.0, 1, 1800),
         max_retries=_number("LLM_MAX_RETRIES", 2, 0, 5, integer=True),
         max_output_tokens=_number("LLM_MAX_OUTPUT_TOKENS", 1500, 50, 32000, integer=True),
@@ -82,4 +94,6 @@ def load_llm_settings() -> LLMSettings:
         thinking=thinking,
         reasoning_effort="" if effort == "omit" else effort,
         context_token_budget=_number("LLM_CONTEXT_TOKEN_BUDGET", 6000, 1000, 60000, integer=True),
+        max_concurrency=_number("LLM_MAX_CONCURRENCY", 1, 1, 16, integer=True),
+        queue_wait_seconds=_number("LLM_QUEUE_WAIT_SECONDS", 120.0, 1, 1800),
     )

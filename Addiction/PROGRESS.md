@@ -12,8 +12,8 @@ Living log of where the project stands. Update it at the end of every batch.
 | 04 | Google sign-in | Done (real login tested by the user) |
 | 05 | Document ingestion | Done |
 | 06 | pgvector retrieval | Done |
-| 07 | DeepSeek answers with citations | Done (committed locally; not pushed; live DeepSeek call not made) |
-| 08 | LangGraph orchestration | Not started |
+| 07 | Answers with citations (local Ollama model; DeepSeek supported) | Done (pushed; run against the local model qwen3.5-16k) |
+| 08 | LangGraph orchestration | Done (committed locally; not pushed) |
 | 09 | Observability, audit, and Gmail reports | Not started |
 | 10 | Integration and classroom demo | Not started |
 
@@ -130,8 +130,26 @@ Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_in
 - **Pipeline check (`python -m app.eval_answers`, real database and real retrieval, scripted mock model):** 12 checks, 0 failed. Citation validity 1.00, quote verified 0.86, unsupported 0.22 (the scripted "sloppy" case), no-evidence correct 1.00, safety behaviour 1.00. The out-of-domain cooking question was stopped by the threshold without a model call. This tests the plumbing and enforcement, **not model quality**.
 - **Not done:** no live DeepSeek call (needs your approval and a key in `.env`); no end-to-end answer through the browser (needs a Google sign-in and the live call). Browser check of the answer rendering (with synthetic data): sections, citation badges and the unverified marker, escalation alert, grouped evidence, quote highlight; a script payload in answer text stayed inert; `?source=mock` and "New conversation" work.
 
+## Batch 08 decisions
+- **A restructuring, not new behaviour:** the Batch 07 pipeline is an explicit LangGraph state graph of ten nodes (`app/graph/`, `docs/ORCHESTRATION.md`). Routing is deterministic: crisis, unsupported requests and no-evidence cases reach the model zero times; history questions in `rag`/`both` are answered from the patient facts without retrieval; `general_knowledge` never retrieves; an unclear question is searched. No checkpointer, no LangSmith/LangChain tracing, no network use by the graph.
+- **Trace:** `chat_messages.trace` / `graph_version` (migration 0007) hold a statistics-only node trace (no question, patient, chunk or answer text; a test scans for them). The existing `trace` field of the answer is unchanged (the prompt said "additive only"), so the new node-level list is a separate field, `execution_trace`, plus `classification`, `retrieval_decision`, `evidence_assessment`, `graph_version`; `GET /api/sessions/{id}/messages/{message_id}/trace` for the owner.
+- **No transaction held open during the model call** (a finding: Batch 07 held a connection and an advisory lock for the whole call, minutes with a local model): three short database phases and an in-process keyed lock with the unique index as backstop. Documented limit: several server processes could make two model calls for one key.
+- **Classifier is rules over English phrases** (honest: non-English questions fall to the default; 40 labelled questions, 100% on the clear cases, 3 known gaps shown). Instruction-override text is **not** blocked by it (the Batch 07 prompt design stays the control), which keeps the Batch 07 injection check meaningful.
+- **Follow-up retry:** one extra search with the previous user turn added, only for real follow-ups (connective or pronoun), not for any short question (the first version used length alone and let an unrelated 3-word question borrow the previous topic: caught by the evaluation and fixed).
+- **Behaviour change:** evidence made only of `possible_injection` chunks now ends as no-evidence (before: the model was called with an empty evidence block).
+- **Local model:** `LLM_BASE_URL/LLM_MODEL/LLM_API_KEY` next to `DEEPSEEK_*`; `<think>` blocks stripped, `reasoning` fields never read; `LLM_MAX_CONCURRENCY` (1) with a 503 "busy" and `Retry-After`; `GRAPH_TOTAL_TIMEOUT_SECONDS` (480), `GRAPH_RETRIEVAL_TIMEOUT_SECONDS` (60). `Retry-After` is now CORS-exposed. The frontend shows the node timeline, an elapsed-seconds counter, a 540 s browser wait and the busy hint.
+- **Install note:** `langgraph` 1.2.18 and its dependencies (about 5 MB) went into `backend/.venv` (I first installed them into the system Python by mistake and removed them again).
+- **Changes to older tests, all declared and none weakened:** the answer key set grew; the dose test in `test_answers_api.py` and the dose check in `test_eval_answers.py` asked a direct dose question that is now (correctly) stopped before the model, so they ask an ordinary question and let the scripted model misbehave (the output withholding they test is unchanged); the OpenAPI list has the trace route; `eval_answers` now commits and deletes throw-away rows instead of rolling back (the nodes read through their own sessions).
+
+## Batch 08 results on this machine
+- **Tests:** 999 passed, 1 skipped (with torch). About 165 new tests: routing (every mode and classification), classifier, assessment, trace (no sensitive text, ownership, no checkpointer, tracing off, no Python-level network), limits (timeouts, busy model, no connection held during the model call), local-model handling, migration 0007, keyed lock, diagram equality.
+- **Scripted check (`python -m app.eval_answers`, real database and embedder, mock model):** 15 checks, 0 failed. Citation validity 1.00, quote verified 0.86, unsupported 0.22 (the scripted sloppy case), no-evidence correct 1.00, safety behaviour 1.00. **Classifier:** 40 labelled questions, accuracy 0.93, 1.00 without the 3 known gaps (all non-English).
+- **Real run against the local model (`qwen3.5-16k`, 5 questions, nothing left the machine, temporary rows deleted):** history question (rag): classified `patient_history_lookup`, retrieval skipped, answered from the patient facts in 39.6 s. Research question (rag): 5 chunks, evidence `adequate`, answered in 79 s, 5 citations of which 3 verified (`unverified_quote` flagged). Comparison question (both): **failed with 502 `llm_bad_output` after 147 s**: the model produced a section with an invalid kind twice (the original call and the one repair); nothing was stored. That is the Batch 07 validation working on a small local model, not a routing problem, but it means complex questions can fail. Dose request: unsupported, zero model calls, 0.0 s. Out-of-domain cooking question: searched (23 ms), nothing above the threshold, no model call.
+- **Browser check:** the timeline with synthetic traces (a research answer and an unsupported request with skipped nodes), the elapsed-seconds status text and `?source=mock` were checked in the browser pane; a real sign-in and a real question from the page were **not** exercised (needs the user's Google login).
+
 ## Known issues
-- Answers: the deterministic checks are keyword heuristics (false positives and misses); diagnosis statements are not detected; retrieval uses the question only, so follow-up questions may retrieve poorly; no per-day spending cap.
+- Answers: the deterministic checks are keyword heuristics (false positives and misses); diagnosis statements are not detected in model output; follow-up retrieval is a once-only heuristic; no per-day spending cap; small local models sometimes return invalid JSON twice (502).
+- Workflow: the classifier is English-only rules; a node timeout cannot kill a running thread; several server processes could run the model twice for one idempotency key.
 - Retrieval: short table/flowchart fragments from ingestion still rank high for some queries; no reranking or keyword/hybrid search; the evaluation set is tiny.
 - Ingestion heuristics are imperfect (see `docs/INGESTION.md`): the Intervention Guide's flowcharts produce many tiny fragments, some Cochrane running-header text survives as short chunks, and section titles can be noisy.
 - The symbolic-link rejection test is skipped on this Windows machine because creating symlinks needs extra permission; the check itself is in `resolve_pdf`.
@@ -148,4 +166,4 @@ Retrieval quality was not measured (Batch 06). No chunk was flagged `possible_in
 4. `.env` must contain the database settings, `APP_ENV=development`, `SESSION_SECRET` (32+ characters) and the Google variables from `docs/GOOGLE_AUTH_SETUP.md` (git-ignored, never committed). Always open `http://localhost:8000` (not 127.0.0.1).
 
 ## Next step
-Test the live answer flow (add `DEEPSEEK_API_KEY` to `.env`, approve one `python -m app.llm_smoke --live`), then Batch 08: LangGraph orchestration (including the optional Auto mode).
+Try the new workflow in the browser with a real sign-in (restart the API: `uvicorn ... --reload` may leave an old worker on Windows, check `/openapi.json` for the `/trace` route), then push if you are happy. Next: Batch 09 (observability, audit, Gmail reports).

@@ -6,7 +6,7 @@ import { API_MODE, evidenceFromAnswer, messageFromApi, traceToEvents } from "./a
 import { renderAuth } from "./render/auth.js";
 import { renderPatients } from "./render/patients.js";
 import { renderPatientDetail } from "./render/patientDetail.js";
-import { renderChat } from "./render/chat.js";
+import { renderChat, updateChatStatus } from "./render/chat.js";
 import { renderEvidence } from "./render/evidence.js";
 import { renderTimeline } from "./render/timeline.js";
 import { renderMode } from "./render/modeIndicator.js";
@@ -23,13 +23,24 @@ const FRIENDLY = {
   llm_not_configured: "The language model is not configured on this server, so answers are not available. Ask the administrator.",
   llm_unavailable: "The language model service is not available right now. Please try again in a little while.",
   llm_timeout: "The language model took too long to answer. Please try again.",
+  workflow_timeout: "Preparing the answer took too long. Please try again.",
+  client_timeout: "The answer took longer than the browser waits. The server may still be working: try again in a minute.",
   llm_bad_output: "The language model returned an answer that could not be used. Please try asking again.",
   retrieval_unavailable: "Document search is not available on this server (the embedding model is not installed).",
   retrieval_not_ready: "The documents have not been embedded yet. Run: python -m app.embedding",
   index_incompatible: "The stored document index was made with a different model. Re-run: python -m app.embedding --force",
   idempotency_conflict: "That request was already used for a different question. Please ask again.",
 };
-const friendlyText = (err) => (err instanceof api.ApiError && FRIENDLY[err.code]) || errorText(err);
+function friendlyText(err) {
+  if (!(err instanceof api.ApiError)) return errorText(err);
+  // A local model serves one question at a time: say so, and say when to try again.
+  const busy = err.code === "llm_unavailable" && /busy/i.test(err.message);
+  const base = busy
+    ? "The model is busy answering another question."
+    : FRIENDLY[err.code] || errorText(err);
+  const hint = (busy || err.status === 429 || err.status === 503) && err.retryAfter ? ` Try again in about ${err.retryAfter} seconds.` : "";
+  return base + hint;
+}
 
 // Shown for ?auth_error=<code> after a failed Google sign-in. Unknown codes get the generic text.
 const AUTH_ERRORS = {
@@ -158,7 +169,8 @@ async function sendQuestion(text) {
   const mine = epoch;
 
   addMessage(patientId, { role: "user", text });
-  setState({ sending: true, lastQuestion: text });
+  setState({ sending: true, sendingSince: Date.now(), lastQuestion: text });
+  const ticker = setInterval(() => updateChatStatus(state), 1000); // the elapsed-seconds counter
   try {
     if (api.isMockSource()) await sendMock(patientId, mode, text, mine);
     else await sendLive(patientId, mode, text, mine);
@@ -170,6 +182,8 @@ async function sendQuestion(text) {
       sending: false,
       evidence: mode === "gk" ? state.evidence : { status: "error", chunks: [], error: friendlyText(err) },
     });
+  } finally {
+    clearInterval(ticker);
   }
 }
 

@@ -282,3 +282,15 @@ Structured answers on the existing `chat_messages` table (see `docs/LLM.md`).
 
 Constraints: key and hash formats; `idempotency_key` and `request_hash` are both null or both set; `response`, `generation` and the key exist only on `role = 'assistant'`. A partial unique index `uq_chat_messages_session_idempotency` on `(session_id, idempotency_key) WHERE idempotency_key IS NOT NULL` makes a key unique per session. The user message and the assistant message of a turn are inserted with explicit `clock_timestamp()` values so their order is stable. Messages from before Batch 07 keep all new columns null.
 
+---
+
+Execution trace of the answer workflow on `chat_messages` (migration 0007, Batch 08; see `docs/ORCHESTRATION.md`).
+
+## chat_messages (Batch 08 columns)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `trace` | jsonb, nullable | One entry per workflow node in graph order: `node`, `status` (`ok`, `skipped`, `ended`, `error`), `started_at`, `duration_ms`, `reason_code`, `reason`, `counts`, `chunk_ids`, `error_code`, `correlation_id`. **Statistics only**: never question, patient or chunk text, prompts, answers or model reasoning. Assistant messages only. |
+| `graph_version` | text, nullable | The workflow version that produced the answer (`graph-v1`). Assistant messages only. |
+
+Constraints: `trace` and `graph_version` exist only on `role = 'assistant'`; `trace` must be a JSON array; `graph_version` must not be blank. Messages from before Batch 08 keep both null. The response JSON in `response` also stores the `classification`, `retrieval_decision`, `evidence_assessment` and `citation_validation` of the run.

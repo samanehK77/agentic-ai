@@ -3,7 +3,8 @@
 By default the language model is a SCRIPTED mock (see eval/answer_checks.json): the numbers then describe what the backend
 does with such output (retrieval, citation mapping, quote verification, no-evidence handling, safety), NOT how good a real
 model is. With --live the real provider answers, which sends questions and retrieved chunks to an external service: use it
-only after explicit approval. Nothing is stored: the run happens inside a transaction that is rolled back.
+only after explicit approval. Nothing is kept: the run creates a throw-away user and chat session (the workflow's nodes read through their
+own database sessions, so these rows must be committed while it runs) and deletes them, with their messages, afterwards.
 
 HONEST LIMITS: small, scripted, keyword-based. It makes no claim about answer quality or clinical validity.
 """
@@ -29,6 +30,7 @@ from app.retrieval.embedder import EmbedderProvider, load_embedder
 from db.config import get_engine
 
 DEFAULT_CHECKS = Path(__file__).resolve().parents[1] / "eval" / "answer_checks.json"
+DEFAULT_CLASSIFIER_CHECKS = Path(__file__).resolve().parents[1] / "eval" / "classifier_checks.json"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "data" / "eval_reports"
 DISCLAIMER = ("Smoke check with a scripted model and keyword checks: it tests the pipeline around the model, not the "
               "quality of any answer, and says nothing about clinical validity.")
@@ -69,7 +71,7 @@ class ScriptedModel:
         self.behavior = "faithful"
         self.calls: list[list] = []
 
-    def complete(self, messages, *, json_mode=True, max_tokens=None, temperature=None) -> LLMResult:
+    def complete(self, messages, *, json_mode=True, max_tokens=None, temperature=None, timeout=None) -> LLMResult:
         self.calls.append(messages)
         system, user = messages[0].content, messages[1].content
         mode = re.search(r"MODE: (\w+)", system).group(1)
@@ -96,6 +98,45 @@ class ScriptedModel:
         return LLMResult(body, "scripted-mock", 100, 50, "stop", 0)
 
 
+def score_classifier(path: Path = DEFAULT_CLASSIFIER_CHECKS) -> dict:
+    """Accuracy of the RULE-BASED question classifier on a small labelled set, with a confusion matrix. Statistics only:
+    misses are listed by position, never by question text. Items marked known_gap are questions the rules are known to get
+    wrong (for example every non-English question); they count in `accuracy` but not in `accuracy_without_known_gaps`."""
+    from app.graph.classifier import LABELS, RuleClassifier
+
+    try:
+        items = json.loads(path.read_text(encoding="utf-8"))["checks"]
+    except (OSError, ValueError, KeyError, TypeError):
+        raise CheckFileError("Cannot read the classifier checks file.") from None
+    classifier = RuleClassifier()
+    confusion = {want: {got: 0 for got in LABELS} for want in LABELS}
+    right = clear = right_clear = 0
+    misses = []
+    for index, item in enumerate(items):
+        got = classifier.classify(item["question"], item.get("patient_id", "P-001")).label
+        want, gap = item["label"], bool(item.get("known_gap"))
+        confusion[want][got] += 1
+        right += got == want
+        if not gap:
+            clear += 1
+            right_clear += got == want
+        if got != want:
+            misses.append({"index": index, "expected": want, "got": got, "known_gap": gap})
+    return {"total": len(items), "accuracy": _rate(right, len(items)), "clear_cases": clear,
+            "accuracy_without_known_gaps": _rate(right_clear, clear), "confusion": confusion, "misses": misses,
+            "note": "small hand-written set; says nothing about answer quality"}
+
+
+def print_classifier(score: dict) -> None:
+    print(f"\nClassifier (rule-based, {score['total']} labelled questions): accuracy {_fmt(score['accuracy'])}, "
+          f"without known gaps {_fmt(score['accuracy_without_known_gaps'])}; misses: {len(score['misses'])} "
+          f"({sum(m['known_gap'] for m in score['misses'])} known gaps)")
+    labels = list(score["confusion"])
+    print("  expected / got  " + "  ".join(label[:12].ljust(12) for label in labels))
+    for want in labels:
+        print(f"  {want[:15].ljust(15)} " + "  ".join(str(score['confusion'][want][got]).ljust(12) for got in labels))
+
+
 def evaluate_expectations(expect: dict, reply: dict, model_calls: list, system_reference: str | None) -> list[str]:
     """Returns the failed expectations (empty list = pass)."""
     failures = []
@@ -105,6 +146,12 @@ def evaluate_expectations(expect: dict, reply: dict, model_calls: list, system_r
         failures.append("llm_called")
     if "no_evidence" in expect and reply["no_evidence"] != expect["no_evidence"]:
         failures.append("no_evidence")
+    classification = (reply.get("classification") or {}).get("label")
+    if "classification" in expect and classification != expect["classification"]:
+        failures.append("classification")
+    needed = (reply.get("retrieval_decision") or {}).get("needed")
+    if "retrieval_needed" in expect and needed != expect["retrieval_needed"]:
+        failures.append("retrieval_needed")
     if "min_citations" in expect and len(cites) < expect["min_citations"]:
         failures.append("min_citations")
     if expect.get("all_quotes_verified") and not all(c["verified"] for c in cites):
@@ -137,16 +184,33 @@ def run_checks(db: Session, pipeline: Pipeline, model: ScriptedModel | None, che
     user_id = db.execute(text("INSERT INTO users (google_sub, email, email_verified) VALUES (:s, :e, true) RETURNING id"),
                          {"s": f"eval-{uuid.uuid4()}", "e": "eval@example.invalid"}).scalar_one()
     user = AuthUser(user_id, "eval@example.invalid", None, "student", "", uuid.uuid4())
+    db.commit()
+    try:
+        return _run_checks(db, pipeline, model, checks, live, user)
+    finally:
+        db.rollback()
+        db.execute(text("DELETE FROM chat_sessions WHERE owner_id = :u"), {"u": user_id})  # messages go with them (cascade)
+        db.execute(text("DELETE FROM users WHERE id = :u"), {"u": user_id})
+        db.commit()
+
+
+def _new_session(db: Session, user: AuthUser):
+    """A fresh chat session per check, so one check never inherits the conversation of another."""
     session_id = db.execute(text("INSERT INTO chat_sessions (patient_id, title, owner_id) VALUES ('P-001', 'eval', :u) RETURNING session_id"),
-                            {"u": user_id}).scalar_one()
+                            {"u": user.id}).scalar_one()
+    db.commit()
+    return session_id
+
+
+def _run_checks(db: Session, pipeline: Pipeline, model: ScriptedModel | None, checks: list[dict], live: bool, user: AuthUser) -> dict:
     results, system_by_mode = [], {}
     for item in checks:
         for mode in item["modes"]:
             if model is not None:
                 model.behavior, model.calls = item["scripted_model"], []
             try:
-                reply, _ = post_message(db, pipeline, user=user, session_id=session_id, content=item["question"], mode=mode,
-                                        idempotency_key=None, request_id="eval", commit=False)
+                reply, _ = post_message(db, pipeline, user=user, session_id=_new_session(db, user), content=item["question"], mode=mode,
+                                        idempotency_key=None, request_id="eval")
                 error = None
             except ApiError as exc:
                 if exc.status_code == 503:  # the index or the model is not available: not a result, a setup problem
@@ -157,7 +221,8 @@ def run_checks(db: Session, pipeline: Pipeline, model: ScriptedModel | None, che
             if reply is not None:
                 calls = model.calls if model else []
                 expect = item["expect"] if not live else {k: v for k, v in item["expect"].items()
-                                                          if k in ("llm_called", "no_evidence", "citations_empty", "notice", "content_excludes", "question_only_in_question_block")}
+                                                          if k in ("llm_called", "no_evidence", "citations_empty", "notice", "content_excludes", "question_only_in_question_block",
+                                                                                  "classification", "retrieval_needed")}
                 entry["failures"] = evaluate_expectations(expect, reply, calls, system_by_mode.get(mode))
                 if calls:
                     system_by_mode.setdefault(mode, calls[-1][0].content if item["kind"] != "injection_attempt" else None)
@@ -166,11 +231,12 @@ def run_checks(db: Session, pipeline: Pipeline, model: ScriptedModel | None, che
                     "citations": len(reply["citations"]), "verified": sum(c["verified"] for c in reply["citations"]),
                     "unsupported": len(reply["unsupported_claims"]), "flags": reply["safety"]["flags"],
                     "evidence_chunks": len(reply["evidence"]), "escalation": reply["safety"]["escalation"],
+                    "classification": (reply.get("classification") or {}).get("label"),
+                    "retrieval_needed": (reply.get("retrieval_decision") or {}).get("needed"),
                     "research_sections": sum(s["kind"] == "research_finding" for s in reply["sections"])})
             else:
                 entry["failures"] = [f"api_error:{error}"]
             results.append(entry)
-    db.rollback()  # nothing from the evaluation is kept
     return {"results": results, "metrics": metrics(results)}
 
 
@@ -219,6 +285,7 @@ def print_report(report: dict, live: bool) -> None:
 def main(argv: list[str] | None = None, *, engine=None, provider: EmbedderProvider | None = None, settings=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.eval_answers", description="Smoke check of the answer pipeline.")
     parser.add_argument("--checks", type=Path, default=DEFAULT_CHECKS)
+    parser.add_argument("--classifier-checks", type=Path, default=DEFAULT_CLASSIFIER_CHECKS)
     parser.add_argument("--live", action="store_true", help="use the real provider (only after explicit approval)")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
     args = parser.parse_args(argv)
@@ -243,11 +310,19 @@ def main(argv: list[str] | None = None, *, engine=None, provider: EmbedderProvid
             print(f"Cannot evaluate: {error.message}", file=sys.stderr)
             return 2
     print_report(report, args.live)
+    try:
+        classifier = score_classifier(args.classifier_checks)
+    except CheckFileError as error:
+        print(f"Checks file problem: {error}", file=sys.stderr)
+        return 2
+    print_classifier(classifier)
+    report["classifier"] = classifier
     args.report_dir.mkdir(parents=True, exist_ok=True)
     path = args.report_dir / f"answers-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
     path.write_text(json.dumps({"note": DISCLAIMER, "live": args.live, **report}, indent=2), encoding="utf-8")
     print(f"Statistics-only report: {path.name} in the report folder")
-    return 1 if report["metrics"]["failed"] else 0
+    clear_misses = [m for m in classifier["misses"] if not m["known_gap"]]
+    return 1 if report["metrics"]["failed"] or clear_misses else 0
 
 
 if __name__ == "__main__":

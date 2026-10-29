@@ -29,6 +29,8 @@ os.environ.update({
     "DEEPSEEK_BASE_URL": "",
     "DEEPSEEK_MODEL": "",
     "LLM_THINKING": "",
+    "LLM_API_KEY": "", "LLM_BASE_URL": "", "LLM_MODEL": "", "LLM_MAX_CONCURRENCY": "", "LLM_QUEUE_WAIT_SECONDS": "",
+    "GRAPH_TOTAL_TIMEOUT_SECONDS": "", "GRAPH_RETRIEVAL_TIMEOUT_SECONDS": "",
 })
 
 from fastapi.testclient import TestClient  # noqa: E402

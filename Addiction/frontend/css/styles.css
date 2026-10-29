@@ -334,6 +334,10 @@ a.btn { text-decoration: none; }
 .timeline-item { display: flex; gap: 0.5rem; padding: 0.35rem 0.5rem; border-left: 3px solid var(--border); background: #fafbfc; border-radius: 4px; }
 .timeline-retrieval { border-left-color: var(--evidence-line); }
 .timeline-generation { border-left-color: var(--interp-line); }
+.timeline-status-skipped { opacity: 0.65; border-left-style: dashed; background: transparent; }
+.timeline-status-ended { border-left-color: var(--warn-fg); }
+.timeline-status-error { border-left-color: var(--error-fg); }
+.timeline-chip { margin-left: 0.4rem; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.7rem; text-transform: uppercase; color: var(--muted); }
 .timeline-icon { color: var(--muted); }
 .timeline-body { display: block; font-size: 0.88rem; }
 .timeline-meta { display: block; font-size: 0.75rem; color: var(--muted); }

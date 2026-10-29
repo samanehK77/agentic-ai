@@ -103,3 +103,7 @@ Outside `?source=mock` every question goes to `POST /api/sessions/{id}/messages`
 
 Run the frontend without browser caching: `python serve.py` (instead of `python -m http.server 8000`); with a normal server use Ctrl+Shift+R after updates.
 
+## Workflow timeline (Batch 08)
+
+The Activity timeline renders the answer's `execution_trace` (one item per workflow node, skipped nodes dimmed with the reason; answers stored before Batch 08 fall back to the short trace). While an answer is prepared the page counts the seconds (a local model can take minutes); the browser waits up to 540 s (`ANSWER_TIMEOUT_MS` in `js/config.js`); a busy model or rate limit shows the API's `Retry-After`. All text is set with `textContent`. See `docs/ORCHESTRATION.md` and `docs/FRONTEND_INTEGRATION_PLAN.md`.
+

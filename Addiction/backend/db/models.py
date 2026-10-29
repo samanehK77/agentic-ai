@@ -329,8 +329,14 @@ class ChatMessage(Base):
     generation: Mapped[dict | None] = mapped_column(JSONB)
     idempotency_key: Mapped[str | None] = mapped_column(Text)
     request_hash: Mapped[str | None] = mapped_column(Text)
+    # Batch 08: the workflow's execution trace (statistics only) and the graph version that produced the answer.
+    trace: Mapped[list | None] = mapped_column(JSONB)
+    graph_version: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
+        CheckConstraint("role = 'assistant' OR (trace IS NULL AND graph_version IS NULL)", name="trace_assistant_only"),
+        CheckConstraint("trace IS NULL OR jsonb_typeof(trace) = 'array'", name="trace_is_array"),
+        CheckConstraint("graph_version IS NULL OR length(trim(graph_version)) > 0", name="graph_version_not_blank"),
         CheckConstraint("idempotency_key IS NULL OR idempotency_key ~ '^[A-Za-z0-9._-]{8,64}$'", name="idempotency_key_format"),
         CheckConstraint("request_hash IS NULL OR request_hash ~ '^[0-9a-f]{64}$'", name="request_hash_format"),
         CheckConstraint("(idempotency_key IS NULL) = (request_hash IS NULL)", name="key_and_hash_together"),

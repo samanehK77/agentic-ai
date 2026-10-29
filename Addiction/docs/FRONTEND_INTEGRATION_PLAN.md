@@ -102,3 +102,7 @@ The Batch 06 placeholder reply is gone. Outside `?source=mock`, all three modes 
 - The same question can be asked in `general_knowledge` and `rag` mode to compare: no evidence and no citations versus real chunks and citations.
 - `frontend/serve.py` serves the folder with `Cache-Control: no-store`, so a reload shows the newest files (plain `python -m http.server` may leave stale scripts in the browser cache).
 
+## Workflow timeline (Batch 08)
+
+The Activity timeline now shows the answer workflow: a summary line (classification, whether documents were searched), then one item per node with its duration, a short detail (chunks found, evidence level, quotes verified, tokens) and its status. Nodes that did not run are dimmed and marked **skipped** with the reason (for example "history question: documents not searched"); an unsupported request shows **ended** at "Classify question". Everything comes from the statistics-only `execution_trace` of the answer and is rendered with `textContent`; answers stored before Batch 08 fall back to the short Batch 07 trace list. While an answer is being prepared the page shows an elapsed-seconds counter and "a local model can take a few minutes"; the browser waits up to 540 s (`ANSWER_TIMEOUT_MS` in `js/config.js`, above the server's 480 s workflow limit), the send button stays disabled, and a 503 "busy" or 429 shows the API's `Retry-After` as "Try again in about N seconds". `?source=mock` and `?state=` demos are unchanged.
+

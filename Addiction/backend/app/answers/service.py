@@ -1,48 +1,64 @@
-"""The answer pipeline. The model writes; this code decides what is retrieved, what is sent, what is accepted and what is
-stored. All of it happens in ONE database transaction: on any failure nothing is persisted."""
+"""The answer service: three SHORT database phases around the LangGraph workflow (app/graph).
+
+  A. one short transaction: ownership (404), idempotency lookup (replay), patient record, recent turns, rate limit.
+     The connection is then released.
+  B. the workflow runs with NO database connection held (the retrieval node opens its own short read-only session).
+     The model call can take minutes, so no transaction and no advisory lock may stay open meanwhile.
+  C. one short transaction: re-check the key, insert the user and the assistant message, commit.
+
+Nothing is stored unless the whole run succeeded. A double submit with the same Idempotency-Key is serialized by an
+in-process keyed lock (app/answers/locks.py) with the unique index as the backstop. The model writes; this code decides
+what is retrieved, what is sent, what is accepted and what is stored."""
 import hashlib
 import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import lru_cache
 from uuid import UUID
 
-from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.answers.locks import KeyedLocks
 from app.auth_service import AuthUser
 from app.errors import ApiError, not_found
+from app.graph import build_graph
+from app.graph.build import run_config
+from app.graph.deps import GraphDeps
+from app.graph.nodes import RESPONSE_VERSION  # noqa: F401  (re-exported: the stored response format version)
+from app.graph.routing import NO_EVIDENCE_TEXT  # noqa: F401  (re-exported for callers and tests)
 from app.llm import prompt as prompts
-from app.llm import safety
-from app.llm.base import (
-    BaseLLMClient, LLMBadOutput, LLMError, LLMMessage, LLMNotConfigured, LLMTimeout, LLMUnavailable)
+from app.llm.base import BaseLLMClient
 from app.llm.config import LLMSettings
-from app.llm.schema import ModelAnswer, describe_errors
-from app.llm.validate import EvidenceItem, validate_answer
 from app.repositories import answers as repo
 from app.repositories import patients as patients_repo
 from app.repositories import sessions as sessions_repo
-from app.retrieval import service as retrieval_service
 from app.retrieval.embedder import EmbedderProvider
 from app.retrieval.ratelimit import SlidingWindowLimiter
 
 logger = logging.getLogger("mindevidence.answers")
 
-NO_EVIDENCE_TEXT = (
-    "No supporting evidence was found in the research documents for this question, so no research-based answer is "
-    "given. Try rephrasing the question, or switch to General Knowledge mode for an answer that is clearly labelled as "
-    "not coming from the documents.")
-RESPONSE_VERSION = 1
+
+@lru_cache(maxsize=1)
+def default_graph():
+    return build_graph()
 
 
 @dataclass
 class Pipeline:
-    """Everything the pipeline needs from the application (settings, clients, limiter)."""
+    """Everything the pipeline needs from the application (settings, clients, limiter, the compiled graph)."""
 
     settings: "object"  # app.config.Settings
     llm: BaseLLMClient
     embedder_provider: EmbedderProvider
     limiter: SlidingWindowLimiter | None = None
+    graph: object = None
+    locks: KeyedLocks = field(default_factory=KeyedLocks)
+
+    def __post_init__(self):
+        if self.graph is None:
+            self.graph = default_graph()
 
     @property
     def llm_settings(self) -> LLMSettings:
@@ -54,79 +70,6 @@ class Replay:
     """The stored reply of an earlier request with the same Idempotency-Key and body."""
 
     reply: dict
-
-
-# ---------------------------------------------------------------- LLM call with one bounded repair
-
-def _parse(text: str) -> ModelAnswer:
-    return ModelAnswer.model_validate(json.loads(text))
-
-
-def _llm_error(error: LLMError) -> ApiError:
-    if isinstance(error, LLMNotConfigured):
-        return ApiError(503, "llm_not_configured", "The language model is not configured on this server.")
-    if isinstance(error, LLMTimeout):
-        return ApiError(504, "llm_timeout", "The language model did not answer in time. Please try again.")
-    if isinstance(error, LLMUnavailable):
-        headers = {"Retry-After": str(error.retry_after)} if error.retry_after else None
-        return ApiError(503, "llm_unavailable", "The language model service is not available right now. Please try again later.",
-                        headers=headers)
-    return ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.")
-
-
-def _why(error: Exception) -> str:
-    """A safe reason for the log: field paths and error types, or the position of a JSON syntax error. Never the text."""
-    if isinstance(error, json.JSONDecodeError):
-        return f"not valid json (syntax error at character {error.pos})"
-    return describe_errors(error)
-
-
-def _generate(pipeline: Pipeline, messages: list[LLMMessage]) -> tuple[ModelAnswer, dict]:
-    """One call, plus at most ONE repair call when the output is unusable. Returns the parsed answer and usage numbers."""
-    client = pipeline.llm
-    if not client.configured:
-        raise ApiError(503, "llm_not_configured", "The language model is not configured on this server.")
-    usage = {"model": None, "prompt_tokens": 0, "completion_tokens": 0, "retries": 0, "repair_attempted": False}
-
-    def call(msgs: list[LLMMessage]):
-        try:
-            result = client.complete(msgs, json_mode=True)
-        except LLMBadOutput:
-            raise
-        except LLMError as error:
-            raise _llm_error(error) from None
-        usage["model"] = result.model
-        usage["prompt_tokens"] += result.prompt_tokens
-        usage["completion_tokens"] += result.completion_tokens
-        usage["retries"] += result.retries
-        return result
-
-    problems = "the reply was empty or cut off"
-    first_text = None
-    try:
-        first = call(messages)
-        first_text = first.text
-        return _parse(first.text), usage
-    except LLMBadOutput as error:
-        logger.warning("model output unusable (attempt 1): %s", error)  # a generic reason, never the output itself
-    except (ValueError, ValidationError) as error:
-        problems = describe_errors(error)
-        logger.warning("model output rejected (attempt 1): %s", _why(error))
-
-    usage["repair_attempted"] = True
-    repair = list(messages)
-    if first_text is not None:
-        repair += [LLMMessage("assistant", first_text[:4000]),
-                   LLMMessage("user", prompts.load_prompt("repair_v1.txt").format(problems=problems))]
-    try:
-        second = call(repair)
-        return _parse(second.text), usage
-    except LLMBadOutput as error:
-        logger.warning("model output unusable (attempt 2, after the repair request): %s", error)
-        raise ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.") from None
-    except (ValueError, ValidationError) as error:
-        logger.warning("model output rejected (attempt 2, after the repair request): %s", _why(error))
-        raise ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.") from None
 
 
 # ---------------------------------------------------------------- building and reading replies
@@ -170,7 +113,11 @@ def build_reply(db: Session, message: dict, request_id: str | None = None, rows:
         "no_evidence": stored["no_evidence"], "content": message["content"], "sections": stored["sections"],
         "citations": citations, "evidence": evidence, "unsupported_claims": stored["unsupported_claims"],
         "conflicting_evidence": stored["conflicting_evidence"], "limitations": stored["limitations"],
-        "safety": stored["safety"], "generation": generation, "trace": stored["trace"]}
+        "safety": stored["safety"], "generation": generation, "trace": stored["trace"],
+        # Batch 08 (additive; null for answers stored before the graph existed)
+        "classification": stored.get("classification"), "retrieval_decision": stored.get("retrieval_decision"),
+        "evidence_assessment": stored.get("evidence_assessment"), "execution_trace": message.get("trace"),
+        "graph_version": message.get("graph_version")}
 
 
 def attach_answers(db: Session, messages: list[dict]) -> list[dict]:
@@ -182,145 +129,112 @@ def attach_answers(db: Session, messages: list[dict]) -> list[dict]:
         message = dict(message)
         stored = message.pop("response", None)
         generation = message.pop("generation", None)
-        message["answer"] = build_reply(db, {**message, "response": stored, "generation": generation}, rows=rows) if stored else None
+        trace = message.pop("trace", None)
+        graph_version = message.pop("graph_version", None)
+        message["answer"] = build_reply(
+            db, {**message, "response": stored, "generation": generation, "trace": trace, "graph_version": graph_version},
+            rows=rows) if stored else None
         out.append(message)
     return out
 
 
+def get_execution_trace(db: Session, user: AuthUser, session_id: UUID, message_id: UUID) -> dict:
+    """The stored execution trace of an assistant message. Another user's session, an unknown message and a user message
+    all look the same: 404."""
+    if sessions_repo.get_session(db, user.id, session_id) is None:
+        raise not_found("Chat session was not found.")
+    row = repo.get_trace(db, session_id, message_id)
+    if row is None:
+        raise not_found("Message was not found.")
+    return {"message_id": row["message_id"], "graph_version": row["graph_version"], "execution_trace": row["trace"] or []}
+
+
 # ---------------------------------------------------------------- the pipeline
-
-def _evidence_from_search(results: list[dict]) -> list[EvidenceItem]:
-    return [EvidenceItem(
-        chunk_id=r["chunk_id"], paper_id=r["paper_id"], title=r["title"], section_title=r["section_title"],
-        section_type=r["section_type"], page_start=r["page_start"], page_end=r["page_end"], text=r["text"],
-        similarity=r["similarity"], possible_injection=r["possible_injection"],
-        text_sha256=r.get("text_sha256", "")) for r in results]
-
 
 def _request_hash(session_id: UUID, mode: str, content: str) -> str:
     body = json.dumps({"session": str(session_id), "mode": mode, "content": content}, sort_keys=True)
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
+def _replay(db: Session, existing: dict, request_hash: str, request_id: str) -> dict:
+    if existing["request_hash"] != request_hash:
+        raise ApiError(409, "idempotency_conflict", "This Idempotency-Key was already used with a different request.")
+    return build_reply(db, existing, request_id)
+
+
 def post_message(db: Session, pipeline: Pipeline, *, user: AuthUser, session_id: UUID, content: str, mode: str,
-                 idempotency_key: str | None, request_id: str, commit: bool = True) -> tuple[dict, bool]:
-    """Answers one question and stores the turn. Returns (reply, replayed). With commit=False the caller owns the
-    transaction (the evaluation script rolls everything back)."""
+                 idempotency_key: str | None, request_id: str) -> tuple[dict, bool]:
+    """Answers one question and stores the turn. Returns (reply, replayed)."""
     started = time.perf_counter()
     outcome = "error"
     llm_called, tokens = False, (0, 0)
+    request_hash = _request_hash(session_id, mode, content)
     try:
-        session = sessions_repo.get_session(db, user.id, session_id)
-        if session is None:
-            raise not_found("Chat session was not found.")  # also for another user's session
-        request_hash = _request_hash(session_id, mode, content)
-
         if idempotency_key:
-            repo.lock_key(db, session_id, idempotency_key)
-            existing = repo.find_by_key(db, session_id, idempotency_key)
-            if existing:
-                if existing["request_hash"] != request_hash:
-                    raise ApiError(409, "idempotency_conflict",
-                                   "This Idempotency-Key was already used with a different request.")
-                outcome = "replayed"
-                return build_reply(db, existing, request_id), True
-
-        profile = patients_repo.get_profile(db, session["patient_id"])
-        screen = safety.screen_question(content)
-
-        if pipeline.limiter is not None:
-            wait = pipeline.limiter.check(str(user.id))
-            if wait is not None:
-                outcome = "rate_limited"
-                raise ApiError(429, "rate_limited", "Too many questions. Please wait a moment and try again.",
-                               headers={"Retry-After": str(wait)})
-
-        trace: list[dict] = []
-        evidence: list[EvidenceItem] = []
-        sections: list[dict] = []
-        validated = None
-        no_evidence = False
-        flags: list[str] = []
-        generation: dict = {"llm_called": False}
-        conflicts: list[str] = []
-        limitations = ""
-        model_escalation = False
-
-        if screen.personal:
-            # A first-person crisis statement: no retrieval and no generated answer, only the fixed notice.
-            flags.append("personal_crisis_no_answer")
-            trace.append({"type": "safety", "label": "Risk screen triggered", "detail": "fixed notice shown; no answer generated"})
-            content_out = safety.ESCALATION_NOTICE
-            outcome = "crisis_notice"
+            with pipeline.locks.hold(f"{session_id}:{idempotency_key}"):
+                reply, replayed, outcome, llm_called, tokens = _run(
+                    db, pipeline, user, session_id, content, mode, idempotency_key, request_id, request_hash)
         else:
-            if mode in ("rag", "both"):
-                t0 = time.perf_counter()
-                found = retrieval_service.search(
-                    db, pipeline.embedder_provider, query=content, top_k=pipeline.settings.answer_top_k, paper_id=None,
-                    min_similarity=pipeline.settings.retrieval_min_similarity)
-                evidence = _evidence_from_search(found["results"])
-                trace.append({"type": "retrieval", "label": "Chunks retrieved" if evidence else "No chunks above the threshold",
-                              "detail": f"{len(evidence)} chunk(s)", "latency_ms": round((time.perf_counter() - t0) * 1000)})
-                no_evidence = not evidence
-
-            if no_evidence:
-                flags.append("no_evidence")
-                content_out = NO_EVIDENCE_TEXT
-                outcome = "no_evidence"
-            else:
-                prompts.assign_aliases(evidence)
-                history = repo.recent_turns(db, session_id, prompts.HISTORY_TURNS * 2)
-                build = prompts.build_messages(
-                    mode=mode, profile=profile, evidence=evidence, history=history, question=content,
-                    budget_tokens=pipeline.llm_settings.context_token_budget)
-                t1 = time.perf_counter()
-                answer, usage = _generate(pipeline, build.messages)
-                llm_ms = round((time.perf_counter() - t1) * 1000)
-                llm_called, tokens = True, (usage["prompt_tokens"], usage["completion_tokens"])
-                validated = validate_answer(answer, mode, evidence)
-                flags.extend(validated.flags)
-                sections, conflicts, limitations = validated.sections, validated.conflicting_evidence, validated.limitations
-                model_escalation = answer.escalation_needed
-                content_out = validated.content
-                generation = {
-                    "llm_called": True, "model": usage["model"], "prompt_version": prompts.PROMPT_VERSION,
-                    "latency_ms": llm_ms, "prompt_tokens": usage["prompt_tokens"], "completion_tokens": usage["completion_tokens"],
-                    "retries": usage["retries"], "repair_attempted": usage["repair_attempted"],
-                    "temperature": pipeline.llm_settings.temperature, "max_tokens": pipeline.llm_settings.max_output_tokens,
-                    "estimated_context_tokens": build.estimated_tokens, "history_turns_used": build.history_turns_used}
-                trace.append({"type": "generation", "label": "Answer generated", "detail":
-                              f"{usage['prompt_tokens']} prompt / {usage['completion_tokens']} completion tokens", "latency_ms": llm_ms})
-                verified = sum(c["verified"] for c in validated.citations)
-                trace.append({"type": "validation", "label": "Citations validated",
-                              "detail": f"{verified} of {len(validated.citations)} quote(s) verified; "
-                                        f"{len(validated.unsupported_claims)} unsupported claim(s)"})
-                outcome = "answered"
-
-        escalation = screen.triggered or model_escalation
-        if escalation and not screen.personal:
-            trace.append({"type": "safety", "label": "Safety notice added", "detail": "risk cues in the question or the answer"})
-        cited_ids = {c["chunk_id"] for c in (validated.citations if validated else [])}
-        stored = {
-            "v": RESPONSE_VERSION, "mode": mode, "no_evidence": no_evidence, "sections": sections,
-            "citations": validated.citations if validated else [],
-            "unsupported_claims": validated.unsupported_claims if validated else [],
-            "conflicting_evidence": conflicts, "limitations": limitations,
-            "safety": {"escalation": escalation, "notice": safety.ESCALATION_NOTICE if escalation else None, "flags": flags},
-            "evidence": [{"alias": e.alias, "chunk_id": e.chunk_id, "text_sha256": e.text_sha256, "similarity": e.similarity,
-                          "excluded_reason": e.excluded_reason} for e in evidence],
-            "trace": trace,
-        }
-        for ref, item in zip(stored["evidence"], evidence):
-            ref["cited"] = item.chunk_id in cited_ids
-        message = repo.insert_turn(db, session_id=session_id, mode=mode, question=content, answer_content=content_out,
-                                   response=stored, generation=generation, key=idempotency_key, request_hash=request_hash)
-        reply = build_reply(db, message, request_id)
-        if commit:
-            db.commit()
-        return reply, False
+            reply, replayed, outcome, llm_called, tokens = _run(
+                db, pipeline, user, session_id, content, mode, None, request_id, request_hash)
+        return reply, replayed
     except ApiError as error:
         outcome = error.code
         raise
     finally:
         logger.info("answer request=%s user=%s mode=%s outcome=%s llm_called=%s prompt_tokens=%d completion_tokens=%d latency_ms=%d",
                     request_id, user.id, mode, outcome, llm_called, tokens[0], tokens[1], round((time.perf_counter() - started) * 1000))
+
+
+def _run(db: Session, pipeline: Pipeline, user: AuthUser, session_id: UUID, content: str, mode: str,
+         key: str | None, request_id: str, request_hash: str):
+    settings = pipeline.settings
+    # ---- phase A: a short read-only transaction
+    session = sessions_repo.get_session(db, user.id, session_id)
+    if session is None:
+        raise not_found("Chat session was not found.")  # also for another user's session
+    if key:
+        existing = repo.find_by_key(db, session_id, key)
+        if existing:
+            reply = _replay(db, existing, request_hash, request_id)
+            return reply, True, "replayed", False, (0, 0)
+    profile = patients_repo.get_profile(db, session["patient_id"])
+    history = repo.recent_turns(db, session_id, prompts.HISTORY_TURNS * 2)
+    if pipeline.limiter is not None:
+        wait = pipeline.limiter.check(str(user.id))
+        if wait is not None:
+            raise ApiError(429, "rate_limited", "Too many questions. Please wait a moment and try again.",
+                           headers={"Retry-After": str(wait)})
+    engine = db.get_bind()
+    db.rollback()  # releases the pooled connection: nothing is held open during the run
+
+    # ---- phase B: the workflow (no connection held)
+    total = settings.graph_total_timeout_seconds
+    deps = GraphDeps(
+        settings=settings, llm=pipeline.llm, embedder_provider=pipeline.embedder_provider, engine=engine,
+        deadline=time.monotonic() + total, request_id=request_id,
+        node_timeouts={"execute_retrieval": settings.graph_retrieval_timeout_seconds, "generate_answer": total})
+    state = {"user_id": str(user.id), "session_id": str(session_id), "patient_id": session["patient_id"], "mode": mode,
+             "question": content, "request_id": request_id, "patient_profile": profile, "history": history}
+    final = pipeline.graph.invoke(state, config=run_config(deps))
+    result = final["result"] if isinstance(final, dict) else final.result
+
+    # ---- phase C: one short transaction
+    try:
+        if key:
+            existing = repo.find_by_key(db, session_id, key)  # another process may have finished meanwhile
+            if existing:
+                return _replay(db, existing, request_hash, request_id), True, "replayed", result["llm_called"], result["tokens"]
+        message = repo.insert_turn(
+            db, session_id=session_id, mode=mode, question=content, answer_content=result["content"], response=result["stored"],
+            generation=result["generation"], key=key, request_hash=request_hash, trace=result["execution_trace"],
+            graph_version=result["graph_version"])
+        reply = build_reply(db, message, request_id)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = repo.find_by_key(db, session_id, key) if key else None
+        if existing is None:
+            raise
+        return _replay(db, existing, request_hash, request_id), True, "replayed", result["llm_called"], result["tokens"]
+    return reply, False, result["outcome"], result["llm_called"], result["tokens"]

@@ -28,8 +28,11 @@ def estimate_tokens(text: str) -> int:
     return math.ceil(len(text) / 4)
 
 
-def system_prompt(mode: str) -> str:
-    return load_prompt("answer_v1.system.txt") + "\n\n" + load_prompt(f"mode_{mode}.txt")
+def system_prompt(mode: str, patient_facts_only: bool = False) -> str:
+    text = load_prompt("answer_v1.system.txt") + "\n\n" + load_prompt(f"mode_{mode}.txt")
+    if patient_facts_only:  # routed as a question about the patient record: no documents, answer from the facts only
+        text += "\n\n" + load_prompt("mode_patient_facts.txt")
+    return text
 
 
 def _words(value) -> str:
@@ -106,10 +109,10 @@ class PromptBuild:
 
 
 def build_messages(*, mode: str, profile: dict, evidence: list[EvidenceItem], history: list[tuple[str, str]],
-                   question: str, budget_tokens: int) -> PromptBuild:
+                   question: str, budget_tokens: int, patient_facts_only: bool = False) -> PromptBuild:
     """Deterministic order. Over budget: the oldest conversation turns are trimmed first, then the lowest-similarity
     chunks; the system rules and the question are never trimmed."""
-    system = system_prompt(mode)
+    system = system_prompt(mode, patient_facts_only)
     facts = (f'<patient_facts source="synthetic patient record (fictional)">\n{patient_facts_text(profile)}\n</patient_facts>')
     question_block = f"<question>\n{neutralize(question, 1000)}\n</question>"
     history = history[-(HISTORY_TURNS * 2):]
