@@ -9,7 +9,7 @@ Living log of where the project stands. Update it at the end of every batch.
 | 01 | Frontend with mock data | Done |
 | 02 | PostgreSQL data model and seed | Done |
 | 03 | FastAPI backend | Done |
-| 04 | Google sign-in | Not started |
+| 04 | Google sign-in | Done (real Google login not yet tested by the user) |
 | 05 | Document ingestion | Not started |
 | 06 | pgvector retrieval | Not started |
 | 07 | DeepSeek answers with citations | Not started |
@@ -26,7 +26,7 @@ Living log of where the project stands. Update it at the end of every batch.
 - Batch 03: FastAPI API on port 8001 (health, patients, history, papers, chat sessions, messages), migration 0002 (`papers`, `chat_sessions`, `chat_messages`), papers seed, standard error format and request ids, CORS, `APP_ENV=development` guard, `docs/API.md`, `docs/API_ACCESS_POLICY.md`; frontend patient list and detail now load from the API. Committed.
 
 ## Open questions / decisions
-- Document 4 is a psychosocial-interventions review, not the Cochrane review named in SPEC.md.
+- Document 4 is a psychosocial-interventions review, not the Cochrane review named in SPEC.md. Decision (user, Batch 04): keep this paper and continue; SPEC.md is left unchanged.
 
 ## Batch 01 decisions
 - All data access is in `frontend/js/api.js`; Batch 03 swaps its bodies for `fetch()`.
@@ -57,7 +57,23 @@ Living log of where the project stands. Update it at the end of every batch.
 - Papers: metadata only, taken from file names and `data/papers/README.md`; PDFs were never opened. Unknown publisher or year is stored as the text `unknown`. No file paths are stored or exposed. **The fourth document is a psychosocial-interventions review, not the Cochrane review named in `docs/SPEC.md`.**
 - Frontend: no silent fallback to mock data; `?source=mock` shows a "DEMO DATA (mock)" label. Chat replies and citation chunks stay mock.
 
+## Batch 04 decisions
+- **Google OAuth Authorization Code + PKCE (S256) + OIDC**, scopes `openid email profile` only. State, nonce and PKCE verifier live in a signed (HMAC with `SESSION_SECRET`), HttpOnly, 10-minute cookie that is deleted at the start of the callback; used states are also remembered in memory so a captured cookie cannot be replayed. No `next` parameter.
+- ID token checked by the `google-auth` library (signature, issuer, audience, expiry) plus our own nonce check; `email_verified` must be exactly `true`. Google's tokens are discarded. The token exchange uses `httpx` with TLS verification on.
+- Identity is `users.google_sub`; email is just an updatable attribute. Role `admin` only for verified emails in `ADMIN_EMAILS`, recomputed at every login.
+- Login session: cookie `me_session`, random 256-bit token, only its SHA-256 in `auth_sessions`; new token at each login (no fixation); idle (30 min) and absolute (8 h) limits, both configurable; logout sets `revoked_at`; expired rows are deleted lazily.
+- CSRF: per-session token in `GET /api/auth/me`, header `X-CSRF-Token`, constant-time compare, plus Origin check. Implemented inside the `current_user` dependency so it cannot be forgotten on a new route.
+- Every `/api/*` router except health and auth is protected at `include_router` level. `require_role` added (tested through a test-only route).
+- Ownership: sessions filtered by `owner_id`; foreign or ownerless sessions are 404 `not_found` (existence not revealed). Legacy NULL-owner rows were kept, not deleted.
+- CORS now: `http://localhost:8000` only, credentials allowed, `X-CSRF-Token` allowed header. 127.0.0.1 removed everywhere (cookies are host-scoped).
+- Migration 0003 adds `users`, `auth_sessions`, the FK `chat_sessions.owner_id -> users.id` (`ON DELETE RESTRICT`).
+- The session fixtures in `tests/conftest.py` create users and login sessions directly in the test database; Google is faked (a local RSA key signs test ID tokens, so the real verification code runs).
+- Test-suite changes to older tests (not weakened): the PII scan skips `users`/`auth_sessions` (sign-in data), the table lists include the new tables, the owner-FK test now expects the FK, CORS tests use `localhost`.
+
 ## Known issues
+- **The real Google login has not been tested by a human.** Tests use a fake Google. Follow the checklist in `docs/GOOGLE_AUTH_SETUP.md`.
+- No rate limiting; plain HTTP; `/docs` is open in development; used OAuth states are remembered per process only (see `docs/API_ACCESS_POLICY.md`).
+- The signed-in UI state (name and sign-out button) could not be seen in my checks because it needs a real Google login; the signed-out state, `?auth_error=` message and `?source=mock` were checked in the browser.
 - The patient detail view makes two requests (profile + history) because the profile endpoint does not embed history events.
 - Starlette's test client prints a deprecation warning about `httpx` (it prefers a newer `httpx2` package); tests still pass. The brief asked for httpx, so it is kept.
 - The `?state=error` demo is applied in the frontend before any request, so it does not test the API's own errors; stopping the API does.
@@ -65,9 +81,9 @@ Living log of where the project stands. Update it at the end of every batch.
 
 ## How to resume (Windows PowerShell)
 1. `cd $HOME\Desktop\agentic-ai\Addiction`, then `docker compose up -d` (data is kept in the Docker volume).
-2. Terminal A, API: `cd backend`, `.\.venv\Scripts\Activate.ps1`, `uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload`.
+2. Terminal A, API: `cd backend`, `.\.venv\Scripts\Activate.ps1`, `alembic upgrade head`, `uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload`.
 3. Terminal B, frontend: `cd frontend`, `python -m http.server 8000`, open <http://localhost:8000>.
-4. `.env` must contain the database settings and `APP_ENV=development` (git-ignored, never committed).
+4. `.env` must contain the database settings, `APP_ENV=development`, `SESSION_SECRET` (32+ characters) and the Google variables from `docs/GOOGLE_AUTH_SETUP.md` (git-ignored, never committed). Always open `http://localhost:8000` (not 127.0.0.1).
 
 ## Next step
-Batch 04: Google sign-in (replace the development-only access with real authentication and session ownership).
+Test the real Google login yourself (`docs/GOOGLE_AUTH_SETUP.md`, checklist), then Batch 05: document ingestion.

@@ -5,7 +5,7 @@ Everything shown is **synthetic or MOCK**: patients are fictional and every docu
 invented placeholder text, never attributed to a real source.
 
 **Data sources (since Batch 03):** the patient list and patient detail come from the API
-(`http://127.0.0.1:8001`, see `docs/API.md`). Chat replies, citations and the activity timeline
+(`http://localhost:8001`, see `docs/API.md`), behind Google sign-in (Batch 04). Chat replies, citations and the activity timeline
 are still mock until Batches 05-09 and keep their "(mock)" labels. If the API is not running the
 page shows the error state; it never falls back to mock data silently.
 Open `http://localhost:8000/?source=mock` to use mock patients on purpose; a "DEMO DATA (mock)" label is then shown.
@@ -28,8 +28,9 @@ cd backend
 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-The API address is set in `js/config.js`. The API allows browser requests only from
-`http://127.0.0.1:8000` and `http://localhost:8000`.
+The API address is set in `js/config.js`. The API allows browser requests (with cookies) only from
+`http://localhost:8000`. Use `localhost` for both the page and the API, never `127.0.0.1`: the login cookie belongs to one host name.
+Signing in needs the Google variables described in `docs/GOOGLE_AUTH_SETUP.md`; `?source=mock` works without any backend or sign-in.
 
 ## Structure
 
@@ -38,7 +39,7 @@ frontend/
   index.html
   css/styles.css
   data/mock-data.js     mock patients, chunks, fixed replies (no UI code)
-  js/config.js          API base URL
+  js/config.js          API base URL (localhost:8001)
   js/adapters.js        reshapes API JSON into the shapes the UI uses (pure functions)
   js/api.js             ALL data access (API for patients; mock for chat and chunks)
   js/state.js           small observable store
@@ -70,7 +71,9 @@ The field mapping is in `docs/FRONTEND_INTEGRATION_PLAN.md`.
 | [x] | Switch source mode | "Answer source mode" radio group: General Knowledge, RAG, Both |
 | [x] | Mode changes evidence state | In General Knowledge the inspector says no retrieval happens; RAG and Both show retrieved mock chunks |
 | [x] | Activity timeline | Each question adds mock retrieval and generation events |
-| [x] | Google sign-in (not active) | Hover or focus "Sign in with Google" to see the tooltip |
+| [x] | Google sign-in | Signed out: click "Sign in with Google" (needs `docs/GOOGLE_AUTH_SETUP.md`); signed in: your name and "Sign out" appear |
+| [x] | Signed-out state | Without a session the patient panel says "Sign in to see the patients" |
+| [x] | Sign-in error message | Open `http://localhost:8000/?auth_error=access_denied`: a message appears and the parameter is removed from the address bar |
 | [x] | Loading state | Demo controls, or `?state=loading` |
 | [x] | Empty state | Demo controls, or `?state=empty` |
 | [x] | Error state | Demo controls, or `?state=error` (use "Try again" or Reset) |

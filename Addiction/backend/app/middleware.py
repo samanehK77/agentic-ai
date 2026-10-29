@@ -40,3 +40,22 @@ class RequestIdMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_with_request_id)
+
+
+class NoStoreAuthMiddleware:
+    """Adds Cache-Control: no-store to every /api/auth response (redirects and errors included)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith("/api/auth"):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_no_store(message):
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message)["Cache-Control"] = "no-store"
+            await send(message)
+
+        await self.app(scope, receive, send_no_store)

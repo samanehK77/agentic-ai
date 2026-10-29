@@ -4,20 +4,19 @@ import pytest
 from app.config import StartupError, load_settings
 from app.main import create_app
 
-ALLOWED = "http://127.0.0.1:8000"
+ALLOWED = "http://localhost:8000"
 
 
 # ---------------------------------------------------------------- CORS
 
 def test_allowed_origin_gets_cors_headers(client):
-    for origin in (ALLOWED, "http://localhost:8000"):
-        response = client.get("/api/health", headers={"Origin": origin})
-        assert response.headers["access-control-allow-origin"] == origin
-        assert "access-control-allow-credentials" not in response.headers
+    response = client.get("/api/health", headers={"Origin": ALLOWED})
+    assert response.headers["access-control-allow-origin"] == ALLOWED
+    assert response.headers["access-control-allow-credentials"] == "true"
 
 
 def test_other_origin_gets_no_cors_headers(client):
-    for origin in ("http://evil.example", "http://127.0.0.1:9999", "null"):
+    for origin in ("http://evil.example", "http://127.0.0.1:8000", "http://localhost:9999", "null"):
         response = client.get("/api/health", headers={"Origin": origin})
         assert response.status_code == 200
         assert "access-control-allow-origin" not in response.headers
@@ -31,11 +30,12 @@ def test_wildcard_is_never_returned(client):
 def test_preflight_allows_only_get_post_options(client):
     response = client.options("/api/sessions", headers={
         "Origin": ALLOWED, "Access-Control-Request-Method": "POST",
-        "Access-Control-Request-Headers": "content-type,x-request-id"})
+        "Access-Control-Request-Headers": "content-type,x-request-id,x-csrf-token"})
     assert response.status_code == 200
     allowed = {m.strip() for m in response.headers["access-control-allow-methods"].split(",")}
     assert allowed == {"GET", "POST", "OPTIONS"}
-    assert "x-request-id" in response.headers["access-control-allow-headers"].lower()
+    allowed_headers = response.headers["access-control-allow-headers"].lower()
+    assert "x-request-id" in allowed_headers and "x-csrf-token" in allowed_headers
     assert response.headers["X-Request-ID"]
 
 
@@ -70,7 +70,7 @@ def test_app_starts_in_development(engine, monkeypatch):
 
 def test_default_cors_origins(monkeypatch):
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
-    assert load_settings().cors_origins == ("http://127.0.0.1:8000", "http://localhost:8000")
+    assert load_settings().cors_origins == ("http://localhost:8000",)
 
 
 def test_cors_origins_come_from_the_environment(monkeypatch):
@@ -89,6 +89,10 @@ def test_wildcard_or_malformed_cors_origins_are_refused(monkeypatch, bad):
 
 EXPECTED_OPERATIONS = {
     ("get", "/api/health"),
+    ("get", "/api/auth/google/login"),
+    ("get", "/api/auth/google/callback"),
+    ("get", "/api/auth/me"),
+    ("post", "/api/auth/logout"),
     ("get", "/api/patients"),
     ("get", "/api/patients/{patient_id}"),
     ("get", "/api/patients/{patient_id}/history"),
@@ -108,7 +112,7 @@ def test_openapi_lists_every_endpoint(client):
         for method, operation in item.items():
             assert operation.get("summary"), (method, path)
             assert operation.get("tags"), (method, path)
-            assert "200" in operation["responses"] or "201" in operation["responses"], (method, path)
+            assert any(code[0] in "23" for code in operation["responses"]), (method, path)
 
 
 def test_openapi_contains_the_schemas(client):

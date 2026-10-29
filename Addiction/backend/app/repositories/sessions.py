@@ -13,8 +13,10 @@ MESSAGE_COLUMNS = (
 )
 
 
-def list_sessions(db: Session, patient_id: str | None, limit: int, offset: int) -> tuple[list[dict], int]:
-    filters = [ChatSession.patient_id == patient_id] if patient_id else []
+def list_sessions(db: Session, owner_id: UUID, patient_id: str | None, limit: int, offset: int) -> tuple[list[dict], int]:
+    filters = [ChatSession.owner_id == owner_id]
+    if patient_id:
+        filters.append(ChatSession.patient_id == patient_id)
     total = db.scalar(select(func.count()).select_from(ChatSession).where(*filters))
     query = (
         select(*SESSION_COLUMNS).where(*filters)
@@ -24,13 +26,16 @@ def list_sessions(db: Session, patient_id: str | None, limit: int, offset: int) 
     return [dict(row) for row in db.execute(query).mappings()], total
 
 
-def get_session(db: Session, session_id: UUID) -> dict | None:
-    row = db.execute(select(*SESSION_COLUMNS).where(ChatSession.session_id == session_id)).mappings().first()
+def get_session(db: Session, owner_id: UUID, session_id: UUID) -> dict | None:
+    """Only the owner's session; another user's (or a legacy NULL-owner) session looks like it does not exist."""
+    row = db.execute(
+        select(*SESSION_COLUMNS).where(ChatSession.session_id == session_id, ChatSession.owner_id == owner_id)
+    ).mappings().first()
     return dict(row) if row else None
 
 
-def create_session(db: Session, patient_id: str, title: str) -> dict:
-    session = ChatSession(patient_id=patient_id, title=title)
+def create_session(db: Session, owner_id: UUID, patient_id: str, title: str) -> dict:
+    session = ChatSession(patient_id=patient_id, title=title, owner_id=owner_id)
     db.add(session)
     db.commit()
     db.refresh(session)

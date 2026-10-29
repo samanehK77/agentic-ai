@@ -15,7 +15,9 @@ def broken_client():
     """An app whose database is unreachable (nothing listens on port 1)."""
     url = get_database_url().set(port=1)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
-    with TestClient(create_app(engine=engine)) as test_client:
+    with TestClient(create_app(engine=engine), base_url="http://testserver.local") as test_client:
+        # A cookie is needed to get past the 401 check; looking it up is what hits the dead database.
+        test_client.cookies.set("me_session", "any-token", domain="testserver.local")
         yield test_client
     engine.dispose()
 

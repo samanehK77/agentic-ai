@@ -3,9 +3,11 @@
 const listeners = new Set();
 
 export const state = {
+  auth: { status: "loading", user: null }, // loading | signed-in | signed-out | mock
+  authMessage: null, // friendly text shown after a failed sign-in
   demo: "ready", // ready | loading | empty | error | no-evidence
   mode: "rag", // gk | rag | both
-  patients: { status: "loading", items: [], error: null }, // loading | ready | empty | error
+  patients: { status: "loading", items: [], error: null }, // loading | ready | empty | error | signed-out
   selectedId: null,
   patient: { status: "idle", data: null, error: null }, // idle | loading | ready | error
   messages: {}, // { [patientId]: [{ role, text, citations?, mode?, kind? }] }

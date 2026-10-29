@@ -54,7 +54,7 @@ def test_create_session(client, clean_chat):
     assert UUID(body["session_id"])
     assert body["patient_id"] == "P-001"
     assert body["title"] == "My first questions"  # whitespace trimmed
-    assert body["owner_id"] is None
+    assert body["owner_id"] == client.get("/api/auth/me").json()["id"]  # the signed-in user owns it
     assert response.headers["Location"].endswith(f"/api/sessions/{body['session_id']}")
     fetched = client.get(response.headers["Location"])
     assert fetched.status_code == 200 and fetched.json() == body

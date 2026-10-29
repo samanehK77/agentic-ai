@@ -18,14 +18,17 @@
       <h1>MindEvidence Lab</h1>
       <p>RAG-based research assistant for psychology students</p>
     </div>
-    <div class="signin">
-      <button type="button" id="signin-button" class="btn btn-google" aria-disabled="true" aria-describedby="signin-hint">
+    <div class="auth-area" id="auth-area">
+      <p id="auth-user" class="auth-user" hidden></p>
+      <!-- A plain link: sign-in must be a top-level page navigation to the API, not a fetch call. href is set in main.js. -->
+      <a id="signin-button" class="btn btn-google" href="#" hidden>
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
         Sign in with Google
-      </button>
-      <span id="signin-hint" class="tooltip" role="tooltip">Not active yet: Google sign-in is added in Batch 04.</span>
+      </a>
+      <button type="button" id="signout-button" class="btn" hidden>Sign out</button>
     </div>
   </header>
+  <p id="auth-message" class="auth-message" role="status" hidden></p>
 
   <main id="main" class="workspace">
     <section id="panel-patients" class="panel panel-patients" aria-labelledby="h-patients">

@@ -42,11 +42,12 @@ def test_session_needs_an_existing_patient_and_a_valid_title(conn):
     conn.execute(insert, {"p": "P-099", "t": "x" * 120})
 
 
-def test_owner_id_is_nullable_and_has_no_foreign_key(conn):
+def test_owner_id_is_nullable_and_must_reference_a_user(conn):
     conn.execute(INSERT_PATIENT, PATIENT)
-    conn.execute(text("INSERT INTO chat_sessions (patient_id, title, owner_id) VALUES ('P-099', 't', gen_random_uuid())"))
+    conn.execute(text("INSERT INTO chat_sessions (patient_id, title) VALUES ('P-099', 'legacy row without owner')"))
     fks = conn.scalar(text("SELECT count(*) FROM pg_constraint WHERE contype='f' AND conrelid='chat_sessions'::regclass"))
-    assert fks == 1  # only the patient link
+    assert fks == 2  # the patient link and the owner link (Batch 04)
+    must_fail(conn, text("INSERT INTO chat_sessions (patient_id, title, owner_id) VALUES ('P-099', 't', gen_random_uuid())"), {})
 
 
 def test_a_patient_with_sessions_cannot_be_deleted(conn):

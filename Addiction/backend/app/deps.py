@@ -3,8 +3,13 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, Path, Query, Request
+from fastapi import Depends, Header, Path, Query, Request
+from fastapi.security import APIKeyCookie
 from sqlalchemy.orm import Session
+
+from app import auth_service, security
+from app.auth_service import SESSION_COOKIE, AuthUser
+from app.errors import csrf_failed, forbidden, unauthorized
 
 PATIENT_ID_PATTERN = r"^P-\d{3}$"
 
@@ -35,3 +40,45 @@ def pagination(
 
 DbSession = Annotated[Session, Depends(get_db)]
 PageParams = Annotated[Pagination, Depends(pagination)]
+
+
+# ---------------------------------------------------------------- authentication
+
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+session_cookie_scheme = APIKeyCookie(name=SESSION_COOKIE, auto_error=False, description="Login session cookie set by Google sign-in.")
+
+
+def current_user(
+    request: Request,
+    db: DbSession,
+    token: Annotated[str | None, Depends(session_cookie_scheme)],
+    csrf_header: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token", description="Required on POST, PUT, PATCH and DELETE; value from GET /api/auth/me."),
+    ] = None,
+) -> AuthUser:
+    """The signed-in user, or 401. State-changing requests must also pass the CSRF and Origin checks."""
+    user = auth_service.authenticate(db, request.app.state.settings, token)
+    if user is None:
+        raise unauthorized()
+    if request.method in UNSAFE_METHODS:
+        origin = request.headers.get("origin")
+        if origin is not None and origin not in request.app.state.settings.cors_origins:
+            raise csrf_failed()
+        if not csrf_header or not security.safe_equal(csrf_header, user.csrf_token):
+            raise csrf_failed()
+    return user
+
+
+CurrentUser = Annotated[AuthUser, Depends(current_user)]
+
+
+def require_role(*roles: str):
+    """Dependency factory for role-restricted routes: `Depends(require_role("admin"))`."""
+
+    def check(user: CurrentUser) -> AuthUser:
+        if user.role not in roles:
+            raise forbidden()
+        return user
+
+    return check

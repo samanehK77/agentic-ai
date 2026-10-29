@@ -24,7 +24,7 @@ class SessionOut(BaseModel):
     session_id: UUID
     patient_id: str
     title: str
-    owner_id: UUID | None = Field(default=None, description="Reserved for Batch 04 (sign-in); always null for now.")
+    owner_id: UUID | None = Field(default=None, description="The signed-in user who owns the session.")
     created_at: datetime
 
 

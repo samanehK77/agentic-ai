@@ -26,6 +26,8 @@ class ErrorResponse(BaseModel):
     error: ErrorBody
 
 
-ERROR_422 = {422: {"model": ErrorResponse, "description": "The request is not valid."}}
+ERROR_401 = {401: {"model": ErrorResponse, "description": "Not signed in (code `unauthorized`)."}}
+ERROR_403 = {403: {"model": ErrorResponse, "description": "Missing or wrong CSRF token (`csrf_failed`) or wrong role (`forbidden`)."}}
+ERROR_422 ={422: {"model": ErrorResponse, "description": "The request is not valid."}}
 ERROR_404 = {404: {"model": ErrorResponse, "description": "The requested item does not exist."}}
 ERROR_503 = {503: {"model": ErrorResponse, "description": "The database is not reachable."}}

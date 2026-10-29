@@ -12,6 +12,7 @@ export function renderPatients(state, actions) {
     builtFor = null;
     const block =
       status === "loading" ? stateBlock("loading", { title: "Loading patients…" })
+      : status === "signed-out" ? stateBlock("empty", { title: "Sign in to see the patients", message: "Use the Sign in with Google button at the top of the page." })
       : status === "error" ? stateBlock("error", { title: "Could not load patients", message: error, onRetry: actions.reload })
       : stateBlock("empty", { title: "No patients to show", message: "The mock patient list is empty in this demo state." });
     container.replaceChildren(block);

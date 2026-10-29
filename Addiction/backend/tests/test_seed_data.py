@@ -176,7 +176,7 @@ def test_seed_files_contain_no_emails_phones_or_urls():
 def test_database_text_contains_no_emails_phones_or_urls(conn):
     text_columns = rows(conn, """
         SELECT table_name, column_name FROM information_schema.columns
-        WHERE table_schema = 'public' AND data_type = 'text' AND table_name <> 'alembic_version'""")
+        WHERE table_schema = 'public' AND data_type = 'text' AND table_name NOT IN ('alembic_version', 'users', 'auth_sessions')  -- sign-in data (random hashes, real addresses), not seed content""")
     assert text_columns
     for column in text_columns:
         for row in conn.execute(text(f'SELECT "{column["column_name"]}" FROM {column["table_name"]}')):

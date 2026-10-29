@@ -1,8 +1,8 @@
-# Frontend integration (status after Batch 03)
+# Frontend integration (status after Batch 04)
 
 The UI only talks to `frontend/js/api.js`. Since Batch 03 the **patient list and patient detail come from the API**; chat answers and citation chunks are still mock until Batches 05-07.
 
-New frontend files: `js/config.js` (API base URL, default `http://127.0.0.1:8001`) and `js/adapters.js` (reshapes API JSON into the shapes the renderers already use). Layout and renderers are unchanged.
+New frontend files: `js/config.js` (API base URL, default `http://localhost:8001`) and `js/adapters.js` (reshapes API JSON into the shapes the renderers already use). Layout and renderers are unchanged.
 
 ## What is real and what is mock
 
@@ -55,4 +55,17 @@ The seed text supersedes the Batch 01 mock text; some names, ages and details di
 ## Rules to keep
 - Patient facts, research evidence and model interpretations stay in separate tables and separate UI blocks.
 - Every patient response includes `is_synthetic: true`; the UI keeps its synthetic banner regardless.
-- The API is development-only and unauthenticated (see `API_ACCESS_POLICY.md`).
+- The API needs a Google sign-in session (Batch 04). The frontend sends `credentials: "include"` with every call and the `X-CSRF-Token` header (from `GET /api/auth/me`) with every POST. A 401 shows the signed-out state with the sign-in button; `?source=mock` never calls the API and needs no sign-in.
+- Use the host name `localhost` for both the frontend and the API: the login cookie belongs to one host name.
+- See `API_ACCESS_POLICY.md` for what is still not protected.
+
+## Sign-in (Batch 04)
+
+| UI part | Behaviour |
+|---------|-----------|
+| Page load | Calls `GET /api/auth/me`. 200: shows "Signed in as <name>" (textContent) and *Sign out*, then loads the patients. 401: signed-out state, sign-in link, "Sign in to see the patients". Other failures: the normal error state |
+| *Sign in with Google* | A plain link to `API_BASE_URL/api/auth/google/login` (top-level navigation, not fetch) |
+| `?auth_error=<code>` | Friendly message for `access_denied`, `state_invalid`, `token_invalid`, `email_unverified` (generic text for anything else), then removed from the address bar with `history.replaceState` |
+| *Sign out* | `POST /api/auth/logout` with the CSRF header, then the signed-out state |
+| Any later 401 (expired session) | Signed-out state |
+| Avatars | None: no external images are loaded |

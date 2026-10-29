@@ -1,8 +1,8 @@
-# Backend: database and API (Batches 02-03)
+# Backend: database, API and Google sign-in (Batches 02-04)
 
 PostgreSQL schema, migrations, seed data, a FastAPI API and tests for 10 **synthetic** patient cases.
 See `docs/DATA_DICTIONARY.md` (tables), `docs/API.md` (endpoints) and `docs/API_ACCESS_POLICY.md`
-(**the API is development-only and not secure**).
+(**the API is development-only, plain HTTP, and not production-ready**) and `docs/GOOGLE_AUTH_SETUP.md`.
 
 ## Layout
 
@@ -42,10 +42,12 @@ POSTGRES_PASSWORD=<choose a password>
 POSTGRES_DB=mindevidence
 POSTGRES_PORT=5432
 APP_ENV=development
+SESSION_SECRET=<at least 32 random characters>
 ```
 
-`APP_ENV=development` is required: the API refuses to start without it. Optionally set
-`CORS_ORIGINS` (comma-separated, no wildcard); the default allows `http://127.0.0.1:8000` and `http://localhost:8000`.
+`APP_ENV=development` and a `SESSION_SECRET` of at least 32 characters are required: the API refuses to start without them.
+The Google sign-in variables (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `FRONTEND_URL`, ...) are explained in `docs/GOOGLE_AUTH_SETUP.md`; without them the API starts but sign-in answers 503.
+Optionally set `CORS_ORIGINS` (comma-separated, no wildcard); the default allows only `http://localhost:8000`.
 
 Leave `DATABASE_URL` empty unless you want to override the settings above.
 
@@ -89,8 +91,8 @@ Running it again is safe: rows are updated in place, never duplicated.
 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-Open <http://127.0.0.1:8001/docs> for the interactive documentation. Keep `--host 127.0.0.1`: the API has
-no authentication, so it must not be reachable from other machines. The frontend (port 8000) shows the
+Open <http://localhost:8001/docs> for the interactive documentation. Keep `--host 127.0.0.1`: this is a local plain-HTTP
+setup and must not be reachable from other machines. Use the host name `localhost` in the browser (cookies are host-scoped). The frontend (port 8000) shows the
 patients from this API; see `docs/API.md` for example requests.
 
 ### 7. Run the tests
@@ -121,4 +123,5 @@ This deletes the database volume. Start again from step 2.
 - The database URL uses `127.0.0.1` rather than `localhost`: on Windows `localhost` can resolve to IPv6 and the connection hangs.
 - To undo migrations: `alembic downgrade base`. After pulling new migrations run `alembic upgrade head` and `python -m db.seed` again.
 - The API port is 8001 because the frontend uses 8000.
+- Run `alembic upgrade head` after pulling Batch 04 (migration 0003 adds `users` and `auth_sessions`).
 - The seed content is fictional. Edit the JSON files in `db/seed_data/` and run `python -m db.seed` again to apply changes; `pytest` re-checks timeline consistency.

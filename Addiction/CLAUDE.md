@@ -25,7 +25,14 @@ It is a teaching tool, not a clinical one. Full details: `docs/SPEC.md` (the sou
 
 ## Commands
 <!-- دستورهای اجرا/تست. وقتی کد ساخته شد، اینجا پر می‌شود. دستور اشتباه ننویس؛ فقط چیزی که واقعاً کار می‌کند. -->
-To be filled in as each batch is built (run backend, run tests, run migrations, serve frontend).
+Windows PowerShell, from the project folder `Addiction` (this is `$HOME\Desktop\agentic-ai\Addiction`; the shell may start in a different folder):
+- Database: `docker compose up -d` (stop with `docker compose stop`; never `down -v`, it deletes the data)
+- Backend setup (once): `cd backend`, `python -m venv .venv`, `.\.venv\Scripts\Activate.ps1`, `pip install -r requirements.txt`
+- Migrations and seed: `alembic upgrade head`, then `python -m db.seed` (both from `backend/`)
+- Run the API: `uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload` (from `backend/`; needs `APP_ENV=development` and `SESSION_SECRET` in `.env`)
+- Run the tests: `pytest` (from `backend/`; uses a separate `<POSTGRES_DB>_test` database)
+- Serve the frontend: `cd frontend`, `python -m http.server 8000`, then open `http://localhost:8000`. Use `localhost`, never `127.0.0.1` (login cookies are host-scoped). `?source=mock` shows demo data without the API.
+- Google sign-in setup and manual test checklist: `docs/GOOGLE_AUTH_SETUP.md`
 
 ## Conventions
 <!-- قواعد سبک کدنویسی که می‌خواهی همیشه رعایت شود. -->
@@ -52,4 +59,4 @@ To be filled in as each batch is built (run backend, run tests, run migrations, 
 
 ## Progress
 <!-- وضعیت فعلی پروژه. می‌تواند به فایل جدایی مثل PROGRESS.md ارجاع بدهد. -->
-Currently: project scaffold only (Batch 0). No application code yet.
+Batches 00-04 are built (frontend, PostgreSQL schema and seed, FastAPI API, Google sign-in with sessions, CSRF and ownership). Details, decisions and known issues: `PROGRESS.md`. The real Google login must still be tested by the user. Next: Batch 05 (document ingestion). Local plain-HTTP development setup only; do not claim production readiness.

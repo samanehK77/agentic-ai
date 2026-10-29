@@ -8,7 +8,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, MetaData,
-    SmallInteger, Text, Uuid, func, text,
+    SmallInteger, Text, UniqueConstraint, Uuid, func, text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -32,6 +32,8 @@ VOCAB = {
     ),
     "completion_status": ("completed", "dropped_out", "ongoing", "not_started", "unknown"),
     "progress_status": ("abstinent", "reduced", "unchanged", "increased", "relapse", "unknown"),
+    # Batch 04
+    "user_role": ("student", "admin"),
     # Batch 03
     "document_type": ("guideline", "guide", "review", "unknown"),
     "ingest_status": ("not_ingested", "ingested", "failed"),
@@ -278,12 +280,14 @@ class ChatSession(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
     patient_id: Mapped[str] = mapped_column(Text, ForeignKey("patients.patient_id", ondelete="RESTRICT"), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    owner_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)  # reserved for Batch 04; no foreign key yet
+    # NULL only for rows created before Batch 04; the API never shows those to anyone.
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="RESTRICT"))
     created_at: Mapped[datetime] = _created()
 
     __table_args__ = (
         CheckConstraint("length(trim(title)) BETWEEN 1 AND 120", name="title_length"),
         Index("ix_chat_sessions_patient_created", "patient_id", "created_at"),
+        Index("ix_chat_sessions_owner_created", "owner_id", "created_at"),
     )
 
 
@@ -303,4 +307,47 @@ class ChatMessage(Base):
         CheckConstraint(f"mode IS NULL OR {_in('mode', 'chat_mode')}", name="mode_values"),
         CheckConstraint("length(trim(content)) > 0 AND length(content) <= 8000", name="content_length"),
         Index("ix_chat_messages_session_created", "session_id", "created_at"),
+    )
+
+
+# ---------------------------------------------------------------- Batch 04 tables
+# users are identified by Google's stable `sub`, never by email. auth_sessions are login sessions
+# (not chat_sessions) and store only a SHA-256 hash of the cookie token.
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    google_sub: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'student'"))
+    created_at: Mapped[datetime] = _created()
+    updated_at: Mapped[datetime] = _created()
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("google_sub", name="uq_users_google_sub"),
+        CheckConstraint(_in("role", "user_role"), name="role_values"),
+        CheckConstraint("length(trim(google_sub)) > 0", name="sub_not_blank"),
+    )
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    csrf_token: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _created()
+    last_seen_at: Mapped[datetime] = _created()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_auth_sessions_token_hash"),
+        Index("ix_auth_sessions_user_id", "user_id"),
     )

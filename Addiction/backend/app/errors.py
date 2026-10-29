@@ -14,7 +14,7 @@ from app.middleware import REQUEST_ID_HEADER
 
 logger = logging.getLogger("mindevidence.api")
 
-HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}
+HTTP_CODES = {401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "method_not_allowed"}
 
 
 class ApiError(Exception):
@@ -30,6 +30,18 @@ class ApiError(Exception):
 
 def not_found(message: str) -> ApiError:
     return ApiError(404, "not_found", message)
+
+
+def unauthorized() -> ApiError:
+    return ApiError(401, "unauthorized", "Sign in is required.")
+
+
+def forbidden(message: str = "You do not have permission to do this.") -> ApiError:
+    return ApiError(403, "forbidden", message)
+
+
+def csrf_failed() -> ApiError:
+    return ApiError(403, "csrf_failed", "The request could not be verified. Reload the page and try again.")
 
 
 def service_unavailable(message: str = "The database is not reachable.") -> ApiError:

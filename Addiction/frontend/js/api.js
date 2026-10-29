@@ -1,6 +1,7 @@
 // All data access goes through this file. Every function is async.
 //
-// Patient list and detail come from the API (Batch 03). There is NO silent fallback:
+// Patient list and detail come from the API (Batch 03), behind Google sign-in (Batch 04): every call sends the
+// session cookie (credentials: "include") and POSTs also send the CSRF token from /api/auth/me. There is NO silent fallback:
 // if the API fails, the error reaches the UI's error state. Mock patients are used only
 // when the page is opened with ?source=mock (the UI then shows a "DEMO DATA (mock)" label).
 // Chat answers and citation chunks stay mock until Batches 05-07.
@@ -10,6 +11,11 @@
 import { PATIENTS, CHUNKS, REPLIES, TIMELINE_STEPS } from "../data/mock-data.js";
 import { API_BASE_URL } from "./config.js";
 import { patientDetail, patientListItem } from "./adapters.js";
+
+// Thrown when the API answers 401, so the UI can show the signed-out state instead of an error.
+export class AuthError extends Error {}
+
+let csrfToken = null;
 
 export const DEMO_STATES = ["ready", "loading", "empty", "error", "no-evidence"];
 
@@ -42,13 +48,24 @@ export function isMockSource() {
   return new URLSearchParams(window.location.search).get("source") === "mock";
 }
 
-async function request(path) {
+async function request(path, { method = "GET", body } = {}) {
+  const headers = { Accept: "application/json" };
+  if (method !== "GET") {
+    headers["X-CSRF-Token"] = csrfToken || "";
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+  }
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { headers: { Accept: "application/json" } });
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      credentials: "include",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
   } catch {
     throw new Error(`Could not reach the API at ${API_BASE_URL}. Is it running?`);
   }
+  if (response.status === 401) throw new AuthError("Not signed in.");
   if (!response.ok) {
     let message = `The API answered with status ${response.status}.`;
     try {
@@ -59,7 +76,22 @@ async function request(path) {
     }
     throw new Error(message);
   }
-  return response.json();
+  return response.status === 204 ? null : response.json();
+}
+
+// The address the "Sign in with Google" link points to (a normal page navigation, not fetch).
+export const loginUrl = `${API_BASE_URL}/api/auth/google/login`;
+
+// Returns { id, email, display_name, role, csrf_token }; throws AuthError when not signed in.
+export async function getMe() {
+  const me = await request("/api/auth/me");
+  csrfToken = me.csrf_token;
+  return me;
+}
+
+export async function signOut() {
+  await request("/api/auth/logout", { method: "POST" });
+  csrfToken = null;
 }
 
 export async function listPatients() {
