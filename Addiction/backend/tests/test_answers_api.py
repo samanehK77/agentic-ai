@@ -498,3 +498,22 @@ def test_openapi_documents_the_endpoint_and_its_errors(answer_env):
     operation = env.client.get("/openapi.json").json()["paths"]["/api/sessions/{session_id}/messages"]["post"]
     assert {"201", "403", "404", "409", "422", "429", "502", "503", "504"} <= set(operation["responses"])
     assert any(p["name"] == "Idempotency-Key" and p["in"] == "header" for p in operation["parameters"])
+
+
+def test_a_rejected_model_output_is_logged_with_a_reason_but_never_its_text(answer_env, answers_corpus, caplog):
+    caplog.set_level(logging.DEBUG)
+    env = answer_env(scripted('{"sections": [{"kind": "poem", "text": "SECRET-MODEL-WORDS"}]}', "SECRET-MODEL-WORDS not json"))
+    assert env.ask(env.new_session(), QUESTION, "rag").status_code == 502
+    messages_ = [r.getMessage() for r in caplog.records if r.name == "mindevidence.answers"]
+    assert any("attempt 1" in m and "sections.0.kind" in m for m in messages_)
+    assert any("attempt 2" in m and "not valid json" in m for m in messages_)
+    assert "SECRET-MODEL-WORDS" not in caplog.text
+
+
+def test_a_cut_off_provider_answer_is_logged_as_such(answer_env, answers_corpus, caplog):
+    from tests.fake_llm import completion
+
+    caplog.set_level(logging.DEBUG)
+    env = answer_env(lambda p, n: httpx.Response(200, json=completion('{"sections": [', finish="length")))
+    env.ask(env.new_session(), QUESTION, "rag")
+    assert any("cut off" in r.getMessage() for r in caplog.records if r.name == "mindevidence.answers")

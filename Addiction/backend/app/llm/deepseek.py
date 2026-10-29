@@ -52,6 +52,8 @@ class DeepSeekClient:
             payload["response_format"] = {"type": "json_object"}
         if settings.thinking == "disabled":
             payload["thinking"] = {"type": "disabled"}
+        if settings.reasoning_effort:
+            payload["reasoning_effort"] = settings.reasoning_effort
         headers = {"Content-Type": "application/json"}
         if settings.api_key:  # a local model server needs no key
             headers["Authorization"] = f"Bearer {settings.api_key}"

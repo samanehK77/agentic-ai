@@ -212,3 +212,31 @@ def test_a_key_is_still_sent_when_one_is_set_even_for_a_local_server():
     provider = MockProvider(ok())
     provider.client(base_url="http://localhost:11434/v1").complete(MESSAGES)
     assert provider.calls[0]["headers"]["authorization"] == f"Bearer {TEST_KEY}"
+
+
+def test_reasoning_effort_is_sent_only_when_set(monkeypatch):
+    provider = MockProvider(ok())
+    provider.client().complete(MESSAGES)
+    assert "reasoning_effort" not in provider.calls[0]["payload"]
+    provider = MockProvider(ok())
+    provider.client(reasoning_effort="none").complete(MESSAGES)
+    assert provider.calls[0]["payload"]["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize("value,expected", [("", ""), ("omit", ""), ("none", "none"), ("HIGH", "high")])
+def test_reasoning_effort_setting(monkeypatch, value, expected):
+    monkeypatch.setenv("LLM_REASONING_EFFORT", value)
+    assert load_llm_settings().reasoning_effort == expected
+
+
+def test_a_bad_reasoning_effort_is_refused(monkeypatch):
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "maximum")
+    with pytest.raises(LLMConfigError):
+        load_llm_settings()
+
+
+def test_generous_local_limits_are_accepted(monkeypatch):
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "900")
+    monkeypatch.setenv("LLM_MAX_OUTPUT_TOKENS", "16000")
+    settings = load_llm_settings()
+    assert (settings.timeout_seconds, settings.max_output_tokens) == (900.0, 16000)

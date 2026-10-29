@@ -74,6 +74,13 @@ def _llm_error(error: LLMError) -> ApiError:
     return ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.")
 
 
+def _why(error: Exception) -> str:
+    """A safe reason for the log: field paths and error types, or the position of a JSON syntax error. Never the text."""
+    if isinstance(error, json.JSONDecodeError):
+        return f"not valid json (syntax error at character {error.pos})"
+    return describe_errors(error)
+
+
 def _generate(pipeline: Pipeline, messages: list[LLMMessage]) -> tuple[ModelAnswer, dict]:
     """One call, plus at most ONE repair call when the output is unusable. Returns the parsed answer and usage numbers."""
     client = pipeline.llm
@@ -100,10 +107,11 @@ def _generate(pipeline: Pipeline, messages: list[LLMMessage]) -> tuple[ModelAnsw
         first = call(messages)
         first_text = first.text
         return _parse(first.text), usage
-    except LLMBadOutput:
-        pass
+    except LLMBadOutput as error:
+        logger.warning("model output unusable (attempt 1): %s", error)  # a generic reason, never the output itself
     except (ValueError, ValidationError) as error:
         problems = describe_errors(error)
+        logger.warning("model output rejected (attempt 1): %s", _why(error))
 
     usage["repair_attempted"] = True
     repair = list(messages)
@@ -113,7 +121,11 @@ def _generate(pipeline: Pipeline, messages: list[LLMMessage]) -> tuple[ModelAnsw
     try:
         second = call(repair)
         return _parse(second.text), usage
-    except (LLMBadOutput, ValueError, ValidationError):
+    except LLMBadOutput as error:
+        logger.warning("model output unusable (attempt 2, after the repair request): %s", error)
+        raise ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.") from None
+    except (ValueError, ValidationError) as error:
+        logger.warning("model output rejected (attempt 2, after the repair request): %s", _why(error))
         raise ApiError(502, "llm_bad_output", "The language model returned an answer that could not be used.") from None
 
 

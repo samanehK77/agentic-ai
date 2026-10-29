@@ -34,6 +34,7 @@ class LLMSettings:
     max_output_tokens: int = 1500
     temperature: float = 0.2
     thinking: str = "disabled"  # "disabled" sends thinking: {type: disabled}; "omit" sends nothing
+    reasoning_effort: str = ""  # "" sends nothing; none|low|medium|high sends reasoning_effort (for example Ollama: none)
     context_token_budget: int = 6000
 
     @property
@@ -67,14 +68,18 @@ def load_llm_settings() -> LLMSettings:
     thinking = os.environ.get("LLM_THINKING", "").strip().lower() or "disabled"
     if thinking not in ("disabled", "omit"):
         raise LLMConfigError("LLM_THINKING must be 'disabled' or 'omit'.")
+    effort = os.environ.get("LLM_REASONING_EFFORT", "").strip().lower()
+    if effort not in ("", "omit", "none", "low", "medium", "high"):
+        raise LLMConfigError("LLM_REASONING_EFFORT must be omit, none, low, medium or high.")
     return LLMSettings(
         api_key=os.environ.get("DEEPSEEK_API_KEY", "").strip(),
         base_url=base_url.rstrip("/"),
         model=os.environ.get("DEEPSEEK_MODEL", "").strip() or DEFAULT_MODEL,
-        timeout_seconds=_number("LLM_TIMEOUT_SECONDS", 30.0, 1, 300),
+        timeout_seconds=_number("LLM_TIMEOUT_SECONDS", 30.0, 1, 1800),
         max_retries=_number("LLM_MAX_RETRIES", 2, 0, 5, integer=True),
-        max_output_tokens=_number("LLM_MAX_OUTPUT_TOKENS", 1500, 50, 8000, integer=True),
+        max_output_tokens=_number("LLM_MAX_OUTPUT_TOKENS", 1500, 50, 32000, integer=True),
         temperature=_number("LLM_TEMPERATURE", 0.2, 0, 2),
         thinking=thinking,
+        reasoning_effort="" if effort == "omit" else effort,
         context_token_budget=_number("LLM_CONTEXT_TOKEN_BUDGET", 6000, 1000, 60000, integer=True),
     )
