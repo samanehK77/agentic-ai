@@ -1,5 +1,10 @@
-# PostgreSQL with the pgvector extension available (enabled in Batch 06).
-# Credentials come from environment variables / a local .env file (never committed).
+# PostgreSQL with the pgvector extension (enabled in Batch 06), and an OPTIONAL "app" profile that also runs the API and a
+# static web server in containers (Batch 10). The development workflow stays: only the database runs in Docker
+#     docker compose up -d
+# and the API and the frontend run locally. The whole application in containers is opt-in:
+#     docker compose --profile app up -d --build
+# Credentials come from environment variables / a local .env file (never committed, never copied into an image).
+# Every published port is bound to 127.0.0.1 only.
 name: mindevidence
 
 services:
@@ -19,6 +24,61 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  # --- optional: the whole application in containers (profile "app") ---------------------------------------------------
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        # false = lightweight image: the API runs, but embedding a search query needs torch, so search and RAG answers
+        # return 503 until you use true. true = CPU torch + sentence-transformers (a much larger image).
+        WITH_EMBEDDINGS: ${WITH_EMBEDDINGS:-false}
+    restart: unless-stopped
+    env_file:
+      - path: .env            # read by Docker Compose at run time; the file is NOT copied into the image
+        required: true
+    environment:
+      POSTGRES_HOST: db       # inside the Compose network the database is "db" on its own port 5432
+      POSTGRES_PORT: "5432"
+      DATABASE_URL: ""
+      # A local Ollama on the Docker host. LLM_* wins over DEEPSEEK_* from .env. The model name comes from .env.
+      LLM_BASE_URL: ${CONTAINER_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-8001}:8001"   # change API_PORT/WEB_PORT only to run a second, separate instance
+    volumes:
+      - ./data:/srv/data                     # PDFs and reports (mounted, never baked into the image)
+      - ./backend/models:/srv/backend/models:ro   # embedding model files (mounted, never baked into the image)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/api/health', timeout=4).status == 200 else 1)"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 15s
+
+  web:
+    profiles: ["app"]
+    image: python:3.13-slim
+    restart: unless-stopped
+    working_dir: /srv/frontend
+    command: ["python", "-m", "http.server", "8000", "--bind", "0.0.0.0", "--directory", "/srv/frontend"]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
+    volumes:
+      - ./frontend:/srv/frontend:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/', timeout=4).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
 volumes:
   pgdata:

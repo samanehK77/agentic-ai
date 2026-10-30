@@ -19,7 +19,7 @@ Addiction/
     db/models.py              SQLAlchemy 2.x models
     db/seed.py                idempotent seed (python -m db.seed)
     db/seed_data/P-001.json ... P-010.json   readable seed content, one file per patient
-    db/seed_data/papers.json  research paper metadata (4 papers)
+    db/seed_data/papers.json  research paper metadata (5 papers)
     db/queries/*.sql          patient profile and chronological history
     tests/                    pytest suite
 ```

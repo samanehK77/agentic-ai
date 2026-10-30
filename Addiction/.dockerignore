@@ -1,0 +1,18 @@
+# Nothing secret or large may enter the build context (and therefore the image).
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+data/
+docs/
+frontend/
+backend/models/
+backend/.venv/
+backend/tests/
+backend/.pytest_cache/
+**/__pycache__/
+**/*.pyc
+*.pdf
+*.safetensors
+pgdata/
