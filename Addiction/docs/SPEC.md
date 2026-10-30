@@ -43,3 +43,31 @@ The project is built in ten batches, each described in its own prompt:
 ## Repository layout
 frontend/ · backend/ · data/papers/ · docs/
 (this file is docs/SPEC.md)
+
+---
+
+## Deviations from the original spec
+
+Appended during Batch 10. The instructor's text above is unchanged; this section records where the built system differs from it.
+
+* **Chunk size.** About 220 tokens (at most 250), not the "400-700 tokens" originally planned. The embedding model
+  (`all-MiniLM-L6-v2`) truncates its input at 256 word pieces, so longer chunks would silently lose their tail; chunks are counted
+  with the model's own tokenizer (`docs/INGESTION.md`).
+* **Five documents, not four.** The corpus holds the four documents named under "Data" plus a fifth review, "Psychosocial
+  Interventions for Alcohol Use Disorder: A Review of Efficacy, Mechanisms, and Clinical Implications" (`data/papers/README.md`).
+  The PDFs are copyrighted and are not in the repository.
+* **Local language model.** The LLM is called only from the backend behind a provider interface, as specified, but the working
+  configuration uses a **local Ollama model** (development used `qwen3.5-16k`, 9.7B parameters, 4-bit) instead of the DeepSeek API;
+  the DeepSeek API remains supported. Nothing leaves the machine with the local model. Small local models are less reliable
+  (invalid JSON, slow answers); the system reports this rather than hiding it.
+* **No Auto mode.** The optional "Auto" answer mode was not built; the three modes are General Knowledge, RAG and Both.
+* **Gmail summaries not implemented.** "Optional email summaries through Gmail" was deliberately not implemented (it is
+  optional). No Gmail scope, token storage or sender exists; sign-in uses only `openid email profile`.
+* **Orchestration.** The LangGraph workflow has ten nodes with deterministic routing (no model call for unsupported requests,
+  history questions answered from patient facts, or no-evidence cases).
+* **Observability.** Audit events are metadata-only and written in their own transactions; `chat_messages.trace` keeps a
+  per-message snapshot of the same node trace.
+* **Extra components not in the spec.** Operator diagnostics, an administrator audit view, answer feedback, a comparative
+  evaluation, a Docker profile and a setup guide (Batch 10).
+* **Development setup only.** Plain HTTP on `localhost`, development-only configuration; not production-ready and not clinically
+  validated.

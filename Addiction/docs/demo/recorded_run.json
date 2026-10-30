@@ -1,0 +1,932 @@
+{
+  "LABEL": "RECORDING of real runs, not a live demo. Made on 2026-10-30 through the application's own service code (same workflow, retrieval, citation validation and audit log as the web page) with a local model; the browser page was not involved. Chunk text is not included (only ids, titles, pages, similarities and the short quotes the model cited).",
+  "model": "qwen3.5-16k",
+  "model_facts": {
+    "exposed": true,
+    "parameter_size": "9.7B",
+    "quantization": "Q4_K_M",
+    "context_length": 16384,
+    "tokens_needed": 15000
+  },
+  "question": "Which medications are used to treat opioid addiction?",
+  "patient": "P-001",
+  "runs": [
+    {
+      "mode": "rag",
+      "wall_seconds": 49.0,
+      "correlation_id": "6663c275-2363-4cf4-8532-4020f26e55e8",
+      "answer": "[Research finding S5] Methadone is a long-acting synthetic opioid agonist medication that can prevent withdrawal symptoms and reduce craving in opioid-addicted individuals.\n\n[Research finding S5] Research has shown that methadone maintenance is more effective when it includes individual and/or group counseling.\n\n[Research finding S2] Buprenorphine, used to treat heroin addiction, can also be used to treat addiction to opioid pain medications.\n\n[Research finding S4] Medications such as methadone, buprenorphine, and naltrexone are effective in helping individuals addicted to heroin or other opioids stabilize their lives.\n\nLimitations: The provided evidence does not list all available medications for opioid addiction, such as naltrexone specifically for this indication beyond general mention, or newer long-acting formulations.",
+      "sections": [
+        {
+          "kind": "research_finding",
+          "text": "Methadone is a long-acting synthetic opioid agonist medication that can prevent withdrawal symptoms and reduce craving in opioid-addicted individuals.",
+          "citations": [
+            {
+              "alias": "S5",
+              "quote": "Methadone is a long-acting synthetic opioid agonist medication that can prevent withdrawal symptoms and reduce craving in opioid-addicted individuals."
+            }
+          ]
+        },
+        {
+          "kind": "research_finding",
+          "text": "Research has shown that methadone maintenance is more effective when it includes individual and/or group counseling.",
+          "citations": [
+            {
+              "alias": "S5",
+              "quote": "Combined with behavioral treatment: Research has shown that methadone maintenance is more effective when it includes individual and/or group counseling"
+            }
+          ]
+        },
+        {
+          "kind": "research_finding",
+          "text": "Buprenorphine, used to treat heroin addiction, can also be used to treat addiction to opioid pain medications.",
+          "citations": [
+            {
+              "alias": "S2",
+              "quote": "For example, buprenorphine, used to treat heroin addiction, can also be used to treat addiction to opioid pain medications."
+            }
+          ]
+        },
+        {
+          "kind": "research_finding",
+          "text": "Medications such as methadone, buprenorphine, and naltrexone are effective in helping individuals addicted to heroin or other opioids stabilize their lives.",
+          "citations": [
+            {
+              "alias": "S4",
+              "quote": "For example, methadone, buprenorphine, and naltrexone (including a new long-acting formulation) are effective in helping individuals addicted to heroin or other opioids stabilize their lives"
+            }
+          ]
+        }
+      ],
+      "citations": [
+        {
+          "alias": "S5",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0077",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "page_start": 25,
+          "page_end": 25,
+          "quote": "Methadone is a long-acting synthetic opioid agonist medication that can prevent withdrawal symptoms and reduce craving in opioid-addicted individuals.",
+          "verified": true
+        },
+        {
+          "alias": "S5",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0077",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "page_start": 25,
+          "page_end": 25,
+          "quote": "Combined with behavioral treatment: Research has shown that methadone maintenance is more effective when it includes individual and/or group counseling",
+          "verified": true
+        },
+        {
+          "alias": "S2",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0021",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "page_start": 8,
+          "page_end": 8,
+          "quote": "For example, buprenorphine, used to treat heroin addiction, can also be used to treat addiction to opioid pain medications.",
+          "verified": true
+        },
+        {
+          "alias": "S4",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0012",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "page_start": 5,
+          "page_end": 5,
+          "quote": "For example, methadone, buprenorphine, and naltrexone (including a new long-acting formulation) are effective in helping individuals addicted to heroin or other opioids stabilize their lives",
+          "verified": true
+        }
+      ],
+      "evidence": [
+        {
+          "alias": "S1",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0020",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "section_title": "What is drug addiction treatment?",
+          "page_start": 7,
+          "page_end": 8,
+          "similarity": 0.7062,
+          "cited": false
+        },
+        {
+          "alias": "S2",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0021",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "section_title": "What is drug addiction treatment?",
+          "page_start": 8,
+          "page_end": 8,
+          "similarity": 0.685,
+          "cited": true
+        },
+        {
+          "alias": "S3",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0083",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "section_title": "Further Reading:",
+          "page_start": 26,
+          "page_end": 26,
+          "similarity": 0.678,
+          "cited": false
+        },
+        {
+          "alias": "S4",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0012",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "section_title": "Principles of Effective Treatment",
+          "page_start": 5,
+          "page_end": 5,
+          "similarity": 0.6702,
+          "cited": true
+        },
+        {
+          "alias": "S5",
+          "chunk_id": "nida-principles-of-drug-addiction-treatment-c0077",
+          "source_title": "Principles of Drug Addiction Treatment: A Research-Based Guide (Third Edition)",
+          "section_title": "Opioid Addiction",
+          "page_start": 25,
+          "page_end": 25,
+          "similarity": 0.6679,
+          "cited": true
+        }
+      ],
+      "unsupported_claims": [],
+      "limitations": "The provided evidence does not list all available medications for opioid addiction, such as naltrexone specifically for this indication beyond general mention, or newer long-acting formulations.",
+      "safety_flags": [],
+      "classification": {
+        "label": "research_question",
+        "reason_code": "research_cue"
+      },
+      "retrieval_decision": {
+        "needed": true,
+        "reason": "The question needs research evidence, so the documents are searched.",
+        "reason_code": "research_needs_evidence"
+      },
+      "evidence_assessment": {
+        "level": "adequate",
+        "usable": 5,
+        "retrieved": 5,
+        "sufficient": true,
+        "reason_code": "enough_usable_chunks",
+        "top_similarity": 0.7062,
+        "retry_follow_up": false,
+        "excluded_possible_injection": 0
+      },
+      "generation": {
+        "llm_called": true,
+        "model": "qwen3.5-16k",
+        "prompt_tokens": 2251,
+        "completion_tokens": 510,
+        "latency_ms": 40970,
+        "repair_attempted": false,
+        "retries": 0
+      },
+      "execution_trace": [
+        {
+          "node": "validate_inputs",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "inputs_valid",
+          "counts": {
+            "question_chars": 53
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "safety_screen",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "no_risk_cues",
+          "counts": {
+            "risk_cues": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "classify_intent",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "research_cue",
+          "counts": {},
+          "chunk_ids": []
+        },
+        {
+          "node": "decide_retrieval",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "research_needs_evidence",
+          "counts": {
+            "retrieval_needed": true
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "execute_retrieval",
+          "status": "ok",
+          "duration_ms": 8011,
+          "reason_code": "retrieval_done",
+          "counts": {
+            "chunks": 5,
+            "attempt": 1
+          },
+          "chunk_ids": [
+            "nida-principles-of-drug-addiction-treatment-c0020",
+            "nida-principles-of-drug-addiction-treatment-c0021",
+            "nida-principles-of-drug-addiction-treatment-c0083",
+            "nida-principles-of-drug-addiction-treatment-c0012",
+            "nida-principles-of-drug-addiction-treatment-c0077"
+          ]
+        },
+        {
+          "node": "assess_evidence",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "enough_usable_chunks",
+          "counts": {
+            "usable": 5,
+            "retrieved": 5,
+            "top_similarity": 0.7062
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "generate_answer",
+          "status": "ok",
+          "duration_ms": 40970,
+          "reason_code": "answer_generated",
+          "counts": {
+            "retries": 0,
+            "prompt_tokens": 2251,
+            "chunks_in_prompt": 5,
+            "repair_attempted": false,
+            "completion_tokens": 510
+          },
+          "chunk_ids": [
+            "nida-principles-of-drug-addiction-treatment-c0020",
+            "nida-principles-of-drug-addiction-treatment-c0021",
+            "nida-principles-of-drug-addiction-treatment-c0083",
+            "nida-principles-of-drug-addiction-treatment-c0012",
+            "nida-principles-of-drug-addiction-treatment-c0077"
+          ]
+        },
+        {
+          "node": "validate_citations",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "citations_checked",
+          "counts": {
+            "sections": 4,
+            "verified": 4,
+            "citations": 4,
+            "unsupported_claims": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "safety_check",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "output_checked",
+          "counts": {
+            "escalation": false,
+            "withheld_sections": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "format_output",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "answered",
+          "counts": {
+            "sections": 4,
+            "citations": 4
+          },
+          "chunk_ids": []
+        }
+      ],
+      "audit_events": [
+        {
+          "event_type": "question_submitted",
+          "outcome": "ok",
+          "latency_ms": null,
+          "error_code": null,
+          "metadata": {
+            "mode": "rag",
+            "model": "qwen3.5-16k",
+            "top_k": 5,
+            "idempotent": false,
+            "prompt_version": "answer-v1",
+            "question_chars": 53,
+            "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+            "chunking_version": "c3ea17b1b2a2",
+            "config_fingerprint": "edf6d648f9d2",
+            "retrieval_threshold": 0.45,
+            "embedding_fingerprint": "334295c75a99"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "validate_inputs",
+            "counts": {
+              "question_chars": 53
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "inputs_valid"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "safety_screen",
+            "counts": {
+              "risk_cues": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "no_risk_cues"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "classify_intent",
+            "counts": {},
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "research_cue"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "decide_retrieval",
+            "counts": {
+              "retrieval_needed": true
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "research_needs_evidence"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 8011,
+          "error_code": null,
+          "metadata": {
+            "node": "execute_retrieval",
+            "counts": {
+              "chunks": 5,
+              "attempt": 1
+            },
+            "status": "ok",
+            "chunk_ids": [
+              "nida-principles-of-drug-addiction-treatment-c0020",
+              "nida-principles-of-drug-addiction-treatment-c0021",
+              "nida-principles-of-drug-addiction-treatment-c0083",
+              "nida-principles-of-drug-addiction-treatment-c0012",
+              "nida-principles-of-drug-addiction-treatment-c0077"
+            ],
+            "reason_code": "retrieval_done"
+          }
+        },
+        {
+          "event_type": "retrieval_executed",
+          "outcome": "ok",
+          "latency_ms": 8011,
+          "error_code": null,
+          "metadata": {
+            "top_k": 5,
+            "chunks": 5,
+            "attempt": 1,
+            "chunk_ids": [
+              "nida-principles-of-drug-addiction-treatment-c0020",
+              "nida-principles-of-drug-addiction-treatment-c0021",
+              "nida-principles-of-drug-addiction-treatment-c0083",
+              "nida-principles-of-drug-addiction-treatment-c0012",
+              "nida-principles-of-drug-addiction-treatment-c0077"
+            ],
+            "threshold": 0.45,
+            "evidence_level": "adequate"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "assess_evidence",
+            "counts": {
+              "usable": 5,
+              "retrieved": 5,
+              "top_similarity": 0.7062
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "enough_usable_chunks"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 40970,
+          "error_code": null,
+          "metadata": {
+            "node": "generate_answer",
+            "counts": {
+              "retries": 0,
+              "prompt_tokens": 2251,
+              "chunks_in_prompt": 5,
+              "repair_attempted": false,
+              "completion_tokens": 510
+            },
+            "status": "ok",
+            "chunk_ids": [
+              "nida-principles-of-drug-addiction-treatment-c0020",
+              "nida-principles-of-drug-addiction-treatment-c0021",
+              "nida-principles-of-drug-addiction-treatment-c0083",
+              "nida-principles-of-drug-addiction-treatment-c0012",
+              "nida-principles-of-drug-addiction-treatment-c0077"
+            ],
+            "reason_code": "answer_generated"
+          }
+        },
+        {
+          "event_type": "llm_request",
+          "outcome": "ok",
+          "latency_ms": 40970,
+          "error_code": null,
+          "metadata": {
+            "model": "qwen3.5-16k",
+            "status": "ok",
+            "retries": 0,
+            "prompt_tokens": 2251,
+            "repair_attempted": false,
+            "completion_tokens": 510,
+            "config_fingerprint": "edf6d648f9d2"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "validate_citations",
+            "counts": {
+              "sections": 4,
+              "verified": 4,
+              "citations": 4,
+              "unsupported_claims": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "citations_checked"
+          }
+        },
+        {
+          "event_type": "citation_validated",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "sections": 4,
+            "verified": 4,
+            "citations": 4,
+            "unsupported_claims": 0
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "safety_check",
+            "counts": {
+              "escalation": false,
+              "withheld_sections": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "output_checked"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "format_output",
+            "counts": {
+              "sections": 4,
+              "citations": 4
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "answered"
+          }
+        },
+        {
+          "event_type": "answer_returned",
+          "outcome": "ok",
+          "latency_ms": 49042,
+          "error_code": null,
+          "metadata": {
+            "result": "answered",
+            "replayed": false,
+            "llm_called": true,
+            "message_id": "ea735c1a-1f10-4d62-a5cb-26ce0745223b",
+            "classification": "research_question"
+          }
+        }
+      ]
+    },
+    {
+      "mode": "general_knowledge",
+      "wall_seconds": 29.6,
+      "correlation_id": "65caed5f-b35e-4253-9910-9c3f86cb71e2",
+      "answer": "[General knowledge (not from the documents)] The patient record indicates the primary category of substance use is alcohol, not opioids. Therefore, medications specifically approved for opioid use disorder (such as methadone, buprenorphine, or naltrexone) are not indicated for this specific case.\n\n[General knowledge (not from the documents)] For alcohol use disorder, which is the patient's primary diagnosis, published research and guidelines typically discuss medications like naltrexone, acamprosate, and disulfiram. These are distinct from opioid treatments.\n\n[General knowledge (not from the documents)] Medication-assisted treatment (MAT) for alcohol often aims to reduce cravings or produce adverse effects if drinking occurs, but the choice of medication depends on individual patient history and current symptoms like sleep difficulty or low mood.\n\n[Interpretation] Since the evidence provided does not contain information about opioid medications, and the patient's profile is for alcohol use disorder, any discussion of opioid treatments would be irrelevant to this specific synthetic case. Clinicians must ensure they are addressing the correct substance category before considering pharmacotherapy.\n\nLimitations: The provided evidence does not contain information regarding medications for opioid addiction because the patient's primary diagnosis is alcohol use disorder. Additionally, no specific research findings were retrieved to cite.",
+      "sections": [
+        {
+          "kind": "general_knowledge",
+          "text": "The patient record indicates the primary category of substance use is alcohol, not opioids. Therefore, medications specifically approved for opioid use disorder (such as methadone, buprenorphine, or naltrexone) are not indicated for this specific case.",
+          "citations": []
+        },
+        {
+          "kind": "general_knowledge",
+          "text": "For alcohol use disorder, which is the patient's primary diagnosis, published research and guidelines typically discuss medications like naltrexone, acamprosate, and disulfiram. These are distinct from opioid treatments.",
+          "citations": []
+        },
+        {
+          "kind": "general_knowledge",
+          "text": "Medication-assisted treatment (MAT) for alcohol often aims to reduce cravings or produce adverse effects if drinking occurs, but the choice of medication depends on individual patient history and current symptoms like sleep difficulty or low mood.",
+          "citations": []
+        },
+        {
+          "kind": "interpretation",
+          "text": "Since the evidence provided does not contain information about opioid medications, and the patient's profile is for alcohol use disorder, any discussion of opioid treatments would be irrelevant to this specific synthetic case. Clinicians must ensure they are addressing the correct substance category before considering pharmacotherapy.",
+          "citations": []
+        }
+      ],
+      "citations": [],
+      "evidence": [],
+      "unsupported_claims": [],
+      "limitations": "The provided evidence does not contain information regarding medications for opioid addiction because the patient's primary diagnosis is alcohol use disorder. Additionally, no specific research findings were retrieved to cite.",
+      "safety_flags": [],
+      "classification": {
+        "label": "research_question",
+        "reason_code": "research_cue"
+      },
+      "retrieval_decision": {
+        "needed": false,
+        "reason": "General Knowledge mode never searches the documents.",
+        "reason_code": "mode_forbids_retrieval"
+      },
+      "evidence_assessment": null,
+      "generation": {
+        "llm_called": true,
+        "model": "qwen3.5-16k",
+        "prompt_tokens": 1133,
+        "completion_tokens": 376,
+        "latency_ms": 29548,
+        "repair_attempted": false,
+        "retries": 0
+      },
+      "execution_trace": [
+        {
+          "node": "validate_inputs",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "inputs_valid",
+          "counts": {
+            "question_chars": 53
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "safety_screen",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "no_risk_cues",
+          "counts": {
+            "risk_cues": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "classify_intent",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "research_cue",
+          "counts": {},
+          "chunk_ids": []
+        },
+        {
+          "node": "decide_retrieval",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "mode_forbids_retrieval",
+          "counts": {
+            "retrieval_needed": false
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "execute_retrieval",
+          "status": "skipped",
+          "duration_ms": 0,
+          "reason_code": "mode_forbids_retrieval",
+          "counts": {},
+          "chunk_ids": []
+        },
+        {
+          "node": "assess_evidence",
+          "status": "skipped",
+          "duration_ms": 0,
+          "reason_code": "mode_forbids_retrieval",
+          "counts": {},
+          "chunk_ids": []
+        },
+        {
+          "node": "generate_answer",
+          "status": "ok",
+          "duration_ms": 29549,
+          "reason_code": "answer_generated",
+          "counts": {
+            "retries": 0,
+            "prompt_tokens": 1133,
+            "chunks_in_prompt": 0,
+            "repair_attempted": false,
+            "completion_tokens": 376
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "validate_citations",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "citations_checked",
+          "counts": {
+            "sections": 4,
+            "verified": 0,
+            "citations": 0,
+            "unsupported_claims": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "safety_check",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "output_checked",
+          "counts": {
+            "escalation": false,
+            "withheld_sections": 0
+          },
+          "chunk_ids": []
+        },
+        {
+          "node": "format_output",
+          "status": "ok",
+          "duration_ms": 0,
+          "reason_code": "answered",
+          "counts": {
+            "sections": 4,
+            "citations": 0
+          },
+          "chunk_ids": []
+        }
+      ],
+      "audit_events": [
+        {
+          "event_type": "question_submitted",
+          "outcome": "ok",
+          "latency_ms": null,
+          "error_code": null,
+          "metadata": {
+            "mode": "general_knowledge",
+            "model": "qwen3.5-16k",
+            "top_k": 5,
+            "idempotent": false,
+            "prompt_version": "answer-v1",
+            "question_chars": 53,
+            "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+            "chunking_version": "c3ea17b1b2a2",
+            "config_fingerprint": "edf6d648f9d2",
+            "retrieval_threshold": 0.45,
+            "embedding_fingerprint": "334295c75a99"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "validate_inputs",
+            "counts": {
+              "question_chars": 53
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "inputs_valid"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "safety_screen",
+            "counts": {
+              "risk_cues": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "no_risk_cues"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "classify_intent",
+            "counts": {},
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "research_cue"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "decide_retrieval",
+            "counts": {
+              "retrieval_needed": false
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "mode_forbids_retrieval"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "skipped",
+          "latency_ms": null,
+          "error_code": null,
+          "metadata": {
+            "node": "execute_retrieval",
+            "counts": {},
+            "status": "skipped",
+            "chunk_ids": [],
+            "reason_code": "mode_forbids_retrieval"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "skipped",
+          "latency_ms": null,
+          "error_code": null,
+          "metadata": {
+            "node": "assess_evidence",
+            "counts": {},
+            "status": "skipped",
+            "chunk_ids": [],
+            "reason_code": "mode_forbids_retrieval"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 29549,
+          "error_code": null,
+          "metadata": {
+            "node": "generate_answer",
+            "counts": {
+              "retries": 0,
+              "prompt_tokens": 1133,
+              "chunks_in_prompt": 0,
+              "repair_attempted": false,
+              "completion_tokens": 376
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "answer_generated"
+          }
+        },
+        {
+          "event_type": "llm_request",
+          "outcome": "ok",
+          "latency_ms": 29549,
+          "error_code": null,
+          "metadata": {
+            "model": "qwen3.5-16k",
+            "status": "ok",
+            "retries": 0,
+            "prompt_tokens": 1133,
+            "repair_attempted": false,
+            "completion_tokens": 376,
+            "config_fingerprint": "edf6d648f9d2"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "validate_citations",
+            "counts": {
+              "sections": 4,
+              "verified": 0,
+              "citations": 0,
+              "unsupported_claims": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "citations_checked"
+          }
+        },
+        {
+          "event_type": "citation_validated",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "sections": 4,
+            "verified": 0,
+            "citations": 0,
+            "unsupported_claims": 0
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "safety_check",
+            "counts": {
+              "escalation": false,
+              "withheld_sections": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "output_checked"
+          }
+        },
+        {
+          "event_type": "node_executed",
+          "outcome": "ok",
+          "latency_ms": 0,
+          "error_code": null,
+          "metadata": {
+            "node": "format_output",
+            "counts": {
+              "sections": 4,
+              "citations": 0
+            },
+            "status": "ok",
+            "chunk_ids": [],
+            "reason_code": "answered"
+          }
+        },
+        {
+          "event_type": "answer_returned",
+          "outcome": "ok",
+          "latency_ms": 29578,
+          "error_code": null,
+          "metadata": {
+            "result": "answered",
+            "replayed": false,
+            "llm_called": true,
+            "message_id": "5bc72103-7635-4dc1-b07c-6c13548300ae",
+            "classification": "research_question"
+          }
+        }
+      ]
+    }
+  ]
+}
