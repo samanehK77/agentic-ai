@@ -81,5 +81,5 @@ evaluation report and its manual-observations section, and read their limits.
 
 ## Data and copyright
 
-Research documents belong to their publishers (WHO, NIDA, Cochrane and others) and are not redistributed here. Patient cases are
+The source code is released under the MIT licence (`LICENSE` in the repository root). The licence covers the code and the synthetic patient cases only. Research documents belong to their publishers (WHO, NIDA, Cochrane and others) and are not redistributed here. Patient cases are
 fictional. No real person's data may be used with this system.
