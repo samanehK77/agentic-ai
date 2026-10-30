@@ -17,7 +17,8 @@ export const state = {
   lastQuestion: null,
   evidence: { status: "idle", chunks: [], error: null }, // idle | ready | no-evidence | error
   activeChunk: { status: "idle", data: null, error: null }, // idle | loading | ready | error
-  timeline: [],
+  timeline: [], // demo mode only (?source=mock)
+  audit: { status: "idle", sessionId: null, groups: [], total: 0, error: null }, // the real audit log of the conversation
 };
 
 export function setState(patch) {

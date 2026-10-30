@@ -342,6 +342,48 @@ a.btn { text-decoration: none; }
 .timeline-body { display: block; font-size: 0.88rem; }
 .timeline-meta { display: block; font-size: 0.75rem; color: var(--muted); }
 
+/* Audit timeline (Batch 09) */
+.audit-groups { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.5rem; max-height: 32rem; overflow: auto; }
+.audit-group { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 0.3rem 0.5rem; }
+.audit-group > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem; }
+.audit-outcome { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; padding: 0 0.45rem; border-radius: 999px; border: 1px solid var(--border); background: #eef1f5; }
+.audit-outcome-answered, .audit-outcome-ok { background: var(--evidence-bg); color: var(--evidence-fg); border-color: var(--evidence-line); }
+.audit-outcome-no_evidence, .audit-outcome-unsupported, .audit-outcome-crisis, .audit-outcome-running, .audit-outcome-interrupted, .audit-outcome-replayed { background: var(--warn-bg); color: var(--warn-fg); border-color: #e0c86a; }
+.audit-outcome-error, .audit-outcome-denied { background: var(--error-bg); color: var(--error-fg); border-color: var(--error-fg); }
+.audit-title { font-weight: 600; }
+.audit-total, .timeline-latency { color: var(--muted); font-size: 0.85rem; }
+.audit-group .timeline-meta { flex-basis: 100%; }
+.audit-diagnosis, .audit-running { margin: 0.4rem 0; padding: 0.4rem 0.6rem; border-radius: 6px; background: var(--error-bg); color: var(--error-fg); font-size: 0.88rem; }
+.audit-running { background: var(--warn-bg); color: var(--warn-fg); }
+.audit-events { margin-top: 0.4rem; max-height: none; }
+.timeline-chunks { display: block; font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
+.timeline-chip.chip-ok { color: var(--evidence-fg); border-color: var(--evidence-line); background: var(--evidence-bg); text-transform: none; }
+.timeline-chip.chip-warn { color: var(--warn-fg); border-color: #e0c86a; background: var(--warn-bg); text-transform: none; }
+.config-box { margin-bottom: 0.5rem; border: 1px solid var(--interp-line); background: var(--interp-bg); border-radius: var(--radius); padding: 0.3rem 0.6rem; }
+.config-box summary { cursor: pointer; font-weight: 600; color: var(--interp-fg); }
+.config-list { display: grid; grid-template-columns: max-content 1fr; gap: 0.1rem 0.8rem; margin: 0.4rem 0; font-size: 0.85rem; }
+.config-list dt { color: var(--muted); }
+.config-list dd { margin: 0; overflow-wrap: anywhere; }
+.feedback-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.5rem; font-size: 0.85rem; }
+.feedback-row .btn-small { margin-top: 0; }
+.feedback-row select { font: inherit; padding: 0.2rem 0.4rem; border: 1px solid #8a97a8; border-radius: var(--radius); background: #fff; }
+.feedback-status { color: var(--muted); }
+
+/* Administrator page */
+.admin-page { max-width: 70rem; margin: 0 auto; padding: 1rem; display: grid; gap: 1rem; }
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem; }
+.admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
+.admin-card .value { font-size: 1.4rem; font-weight: 700; }
+.admin-card .label { font-size: 0.8rem; color: var(--muted); }
+.admin-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
+.admin-filters label { display: grid; font-size: 0.8rem; color: var(--muted); }
+.admin-filters select, .admin-filters input { font: inherit; padding: 0.3rem 0.5rem; border: 1px solid #8a97a8; border-radius: var(--radius); background: #fff; color: var(--text); }
+.admin-table-wrap { overflow: auto; }
+.admin-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.admin-table th, .admin-table td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.admin-table td.meta { max-width: 26rem; overflow-wrap: anywhere; font-family: ui-monospace, monospace; font-size: 0.78rem; }
+.admin-pager { display: flex; gap: 0.5rem; align-items: center; }
+
 /* States */
 .state { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.8rem; border-radius: var(--radius); border: 1px dashed var(--border); background: #f7f9fb; color: var(--text); }
 .state .icon { width: 1.4rem; height: 1.4rem; margin-top: 0.1rem; }

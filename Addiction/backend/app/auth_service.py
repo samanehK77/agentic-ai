@@ -64,8 +64,8 @@ def _check_state(settings: Settings, cookie: str | None, state: str | None, used
 
 
 def complete_login(db: Session, settings: Settings, cookie: str | None, state: str | None, code: str | None,
-                   error: str | None, used_states: dict[str, float]) -> tuple[str, UUID]:
-    """Returns (raw session token, user id). Raises LoginFailure with a generic reason."""
+                   error: str | None, used_states: dict[str, float]) -> tuple[str, UUID, str]:
+    """Returns (raw session token, user id, role). Raises LoginFailure with a generic reason."""
     payload = _check_state(settings, cookie, state, used_states)
     if error:
         raise LoginFailure("access_denied")
@@ -96,7 +96,7 @@ def complete_login(db: Session, settings: Settings, cookie: str | None, state: s
     users_repo.create_auth_session(db, user["id"], security.hash_token(token), csrf, now,
                                    now + timedelta(hours=settings.session_max_hours))
     db.commit()
-    return token, user["id"]
+    return token, user["id"], role
 
 
 # ---------------------------------------------------------------- sessions

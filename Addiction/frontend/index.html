@@ -25,6 +25,7 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
         Sign in with Google
       </a>
+      <a id="admin-link" class="btn" href="admin.html" hidden>Admin</a>
       <button type="button" id="signout-button" class="btn" hidden>Sign out</button>
     </div>
   </header>
@@ -78,7 +79,11 @@
     </section>
 
     <section id="panel-timeline" class="panel panel-timeline" aria-labelledby="h-timeline">
-      <h2 id="h-timeline">Activity timeline</h2>
+      <div class="panel-head">
+        <h2 id="h-timeline">Activity timeline</h2>
+        <button type="button" id="timeline-refresh" class="btn btn-small" hidden>Refresh</button>
+      </div>
+      <p class="panel-hint">What happened to each question, from the audit log: steps, retrieval, model request and citation checks. Only counts, codes and ids are recorded, never the question or document text.</p>
       <div id="timeline-body"></div>
     </section>
 

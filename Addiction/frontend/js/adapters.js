@@ -203,3 +203,100 @@ export function messageFromApi(item) {
   if (!item.answer) return { role: "assistant", text: item.content, mode, kind: "plain" };
   return { role: "assistant", text: item.content, mode, kind: "answer", answer: item.answer };
 }
+
+// ---------------------------------------------------------------- Batch 09: the audit timeline
+
+// Plain-language help for the error codes the API can record (the codes themselves are stable).
+export const ERROR_DIAGNOSIS = {
+  llm_timeout: "The language model did not answer in time. A local model can be slow: try again, or check that the model server is running.",
+  llm_unavailable: "The model server could not be reached, or it is busy with another question. Check that it is running (for Ollama: ollama serve).",
+  llm_bad_output: "The model replied, but not in the required format, even after one repair attempt. Small local models do this sometimes: ask again.",
+  llm_not_configured: "No language model is configured on the server.",
+  workflow_timeout: "A step of the answer workflow ran out of time. Try again; a very slow model or search is the usual cause.",
+  rate_limited: "Too many questions in a short time. Wait a moment and try again.",
+  retrieval_unavailable: "Document search is not available (the embedding model is not installed or could not load).",
+  retrieval_not_ready: "No document chunks have been embedded yet (run: python -m app.embedding).",
+  index_incompatible: "The stored embeddings come from a different model: re-run python -m app.embedding --force.",
+  idempotency_conflict: "The same request key was used for a different question.",
+  service_unavailable: "The database was not reachable.",
+  internal_error: "An unexpected error happened on the server. The request id in the server log helps to find it.",
+};
+
+export const OUTCOME_TEXT = {
+  answered: "Answered", no_evidence: "No evidence", unsupported: "Not supported", crisis: "Safety notice",
+  replayed: "Replayed", error: "Failed", running: "Running…", interrupted: "Interrupted", ok: "Done", denied: "Refused",
+};
+
+const EVENT_LABELS = {
+  question_submitted: "Question submitted", node_executed: "Workflow step", retrieval_executed: "Documents searched",
+  llm_request: "Model request", citation_validated: "Citations checked", answer_returned: "Answer returned",
+  pipeline_error: "Run failed", access_denied: "Access refused", feedback_submitted: "Feedback", session_created: "Conversation started",
+  patient_viewed: "Patient opened", sign_in_succeeded: "Signed in", sign_in_failed: "Sign-in failed", sign_out: "Signed out",
+};
+
+const join = (parts) => parts.filter((p) => p !== null && p !== undefined && p !== "").join(" · ");
+
+// One audit event -> { label, status, detail, chunks, badge }. Every value is a code, a count or an id (never question or chunk text).
+export function auditEventView(evt) {
+  const m = evt.metadata || {};
+  const view = { id: evt.event_id, type: evt.event_type, label: EVENT_LABELS[evt.event_type] || humanize(evt.event_type),
+    status: evt.outcome, latency: evt.latency_ms, detail: "", chunks: [], badge: null, time: evt.occurred_at };
+  switch (evt.event_type) {
+    case "node_executed":
+      view.label = NODE_LABELS[m.node] || humanize(m.node);
+      view.status = m.status === "ok" ? "ok" : m.status;
+      view.detail = m.status === "skipped" ? `skipped: ${humanize(m.reason_code)}` : humanize(m.reason_code);
+      break;
+    case "question_submitted":
+      view.detail = join([m.mode && `mode ${m.mode}`, m.question_chars != null && `${m.question_chars} characters`]);
+      break;
+    case "retrieval_executed":
+      view.detail = join([`attempt ${m.attempt}`, `top_k ${m.top_k ?? "?"}`, `threshold ${m.threshold ?? "none"}`, `${m.chunks} chunk(s)`,
+        m.evidence_level && `evidence ${m.evidence_level}`]);
+      view.chunks = m.chunk_ids || [];
+      break;
+    case "llm_request":
+      view.detail = join([m.model, `${m.prompt_tokens} prompt / ${m.completion_tokens} completion tokens`,
+        m.retries ? `${m.retries} retry(ies)` : null, m.repair_attempted ? "repair attempted" : null]);
+      break;
+    case "citation_validated":
+      view.detail = join([`${m.unsupported_claims} unsupported claim(s)`, `${m.sections} section(s)`]);
+      view.badge = { text: `${m.verified} of ${m.citations} quotes verified`, ok: m.verified === m.citations };
+      break;
+    case "answer_returned":
+      view.detail = m.replayed ? "stored answer replayed (no new run)" : join([OUTCOME_TEXT[m.result] || m.result, m.llm_called ? "model used" : "no model call"]);
+      break;
+    case "pipeline_error":
+      view.detail = join([evt.error_code, m.failed_node && `at ${humanize(m.failed_node)}`]);
+      break;
+    case "access_denied":
+      view.detail = `${humanize(m.reason_code)} (${m.route})`;
+      break;
+    case "feedback_submitted":
+      view.detail = join([humanize(m.rating), m.reason && humanize(m.reason)]);
+      break;
+    default:
+      view.detail = join([m.patient_id, m.role, m.reason && humanize(m.reason)]);
+  }
+  if (evt.outcome === "error" && evt.error_code && !view.detail.includes(evt.error_code)) view.detail = join([view.detail, evt.error_code]);
+  return view;
+}
+
+// One correlation group -> what the timeline shows.
+export function auditGroupView(group) {
+  const events = group.events.map(auditEventView);
+  return {
+    id: group.correlation_id,
+    shortId: group.correlation_id.slice(0, 8),
+    kind: group.kind,
+    outcome: group.outcome,
+    outcomeText: OUTCOME_TEXT[group.outcome] || humanize(group.outcome),
+    errorCode: group.error_code,
+    diagnosis: group.error_code ? (ERROR_DIAGNOSIS[group.error_code] || "See the error code in docs/OBSERVABILITY.md.") : null,
+    totalMs: group.total_latency_ms,
+    startedAt: group.started_at,
+    config: group.config,
+    events,
+    title: group.kind === "question" ? "Question" : (events[0]?.label || "Action"),
+  };
+}

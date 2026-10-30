@@ -51,6 +51,10 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 | `POST /api/sessions` | Create a chat session owned by you; 201 with a `Location` header; needs `X-CSRF-Token` |
 | `GET /api/sessions/{session_id}` | One of your chat sessions (404 for anyone else's) |
 | `GET /api/sessions/{session_id}/messages?limit=&offset=` | Messages of your session, oldest first (empty list for a new session; 404 for anyone else's). Assistant messages carry `answer`: the structured answer with citations and the chunks shown to the model |
+| `GET /api/audit/timeline?session_id=` | Your audit events for one of your own chat sessions, grouped by question (`correlation_id`), newest first (`limit`/`offset` count groups); each group has `outcome`, `total_latency_ms`, `config` and ordered `events` with their own `latency_ms`. Metadata only. Foreign or unknown session 404, malformed id 422; `docs/OBSERVABILITY.md` |
+| `POST /api/sessions/{session_id}/messages/{message_id}/feedback` | Owner only, CSRF. `{rating: helpful\|not_helpful, reason?: accurate\|clear\|good_sources\|inaccurate\|unclear\|missing_sources\|unsafe\|other}`, no free text. 201 the first time, 200 with `already_recorded: true` after (the first rating stands); 404 for a foreign session, an unknown message or a question message |
+| `GET /api/admin/audit/events` | Admin only. Paginated audit events, newest first; filters `event_type`, `user_id`, `outcome`, `date_from`, `date_to`. Metadata only |
+| `GET /api/admin/audit/summary` | Admin only. Counts per event type and day, `error_rate`, `no_evidence_rate`, `answer_latency_p50_ms`/`p95`, `audit_write_failures` (this server process); optional `date_from`/`date_to` |
 | `GET /api/sessions/{session_id}/messages/{message_id}/trace` | The workflow trace of an assistant message (statistics only); 404 for anyone else's session, an unknown message or a user message; `docs/ORCHESTRATION.md` |
 | `POST /api/sessions/{session_id}/messages` | Ask a question (`content`, `mode`) and get a structured, validated answer; 201. Needs `X-CSRF-Token`; optional `Idempotency-Key` |
 

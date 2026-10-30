@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from app import auth_service
 from app.auth_service import OAUTH_COOKIE, SESSION_COOKIE, LoginFailure
-from app.deps import CurrentUser, DbSession
+from app.deps import Audit, CurrentUser, DbSession
 from app.errors import ApiError, request_id_of
 from app.schemas.auth import MeOut
 from app.schemas.common import ERROR_401, ERROR_403, ERROR_503
@@ -58,6 +58,7 @@ def google_login(request: Request) -> Response:
 def google_callback(
     request: Request,
     db: DbSession,
+    ctx: Audit,
     code: Annotated[str | None, Query(max_length=2048)] = None,
     state: Annotated[str | None, Query(max_length=512)] = None,
     error: Annotated[str | None, Query(max_length=256)] = None,
@@ -65,15 +66,18 @@ def google_callback(
     settings = request.app.state.settings
     rid = request_id_of(request)
     if not settings.google_configured:
+        ctx.record("sign_in_failed", "error", error_code="not_configured", metadata={"reason": "not_configured"})
         return _failure_redirect(settings, "access_denied")
     try:
-        token, user_id = auth_service.complete_login(
+        token, user_id, role = auth_service.complete_login(
             db, settings, request.cookies.get(OAUTH_COOKIE), state, code, error, request.app.state.used_states)
     except LoginFailure as failure:
         logger.warning("login_failed request=%s reason=%s", rid, failure.reason)
+        ctx.record("sign_in_failed", "error", error_code=failure.reason, metadata={"reason": failure.reason})
         return _failure_redirect(settings, failure.reason)
 
     logger.info("login_success request=%s user=%s", rid, user_id)
+    ctx.record("sign_in_succeeded", user_id=user_id, metadata={"role": role})
     response = RedirectResponse(f"{settings.frontend_url}/", status_code=302)
     response.delete_cookie(OAUTH_COOKIE, path=OAUTH_COOKIE_PATH)
     response.set_cookie(
@@ -100,8 +104,9 @@ def me(user: CurrentUser) -> MeOut:
     description="Revokes the login session on the server and clears the cookie. Requires the X-CSRF-Token header.",
     responses={**ERROR_401, **ERROR_403},
 )
-def logout(request: Request, user: CurrentUser, db: DbSession) -> Response:
+def logout(request: Request, user: CurrentUser, db: DbSession, ctx: Audit) -> Response:
     auth_service.logout(db, user)
+    ctx.record("sign_out", user_id=user.id)
     logger.info("logout request=%s user=%s", request_id_of(request), user.id)
     settings = request.app.state.settings
     response = Response(status_code=204)

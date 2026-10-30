@@ -21,6 +21,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.answers.locks import KeyedLocks
+from app.audit.context import AuditCtx
+from app.audit.pipeline import QuestionAudit
 from app.auth_service import AuthUser
 from app.errors import ApiError, not_found
 from app.graph import build_graph
@@ -55,6 +57,7 @@ class Pipeline:
     limiter: SlidingWindowLimiter | None = None
     graph: object = None
     locks: KeyedLocks = field(default_factory=KeyedLocks)
+    audit: object = None  # app.audit.AuditService, or None (scripts and evaluations run without an audit log)
 
     def __post_init__(self):
         if self.graph is None:
@@ -138,10 +141,12 @@ def attach_answers(db: Session, messages: list[dict]) -> list[dict]:
     return out
 
 
-def get_execution_trace(db: Session, user: AuthUser, session_id: UUID, message_id: UUID) -> dict:
+def get_execution_trace(db: Session, user: AuthUser, session_id: UUID, message_id: UUID, ctx: AuditCtx | None = None) -> dict:
     """The stored execution trace of an assistant message. Another user's session, an unknown message and a user message
     all look the same: 404."""
     if sessions_repo.get_session(db, user.id, session_id) is None:
+        if ctx is not None:
+            ctx.foreign_session(db, user.id, session_id)
         raise not_found("Chat session was not found.")
     row = repo.get_trace(db, session_id, message_id)
     if row is None:
@@ -169,17 +174,23 @@ def post_message(db: Session, pipeline: Pipeline, *, user: AuthUser, session_id:
     outcome = "error"
     llm_called, tokens = False, (0, 0)
     request_hash = _request_hash(session_id, mode, content)
+    qa = QuestionAudit(pipeline.audit, pipeline.settings, pipeline.embedder_provider, user_id=user.id, session_id=session_id,
+                       request_id=request_id)
     try:
         if idempotency_key:
             with pipeline.locks.hold(f"{session_id}:{idempotency_key}"):
                 reply, replayed, outcome, llm_called, tokens = _run(
-                    db, pipeline, user, session_id, content, mode, idempotency_key, request_id, request_hash)
+                    db, pipeline, user, session_id, content, mode, idempotency_key, request_id, request_hash, qa)
         else:
             reply, replayed, outcome, llm_called, tokens = _run(
-                db, pipeline, user, session_id, content, mode, None, request_id, request_hash)
+                db, pipeline, user, session_id, content, mode, None, request_id, request_hash, qa)
         return reply, replayed
     except ApiError as error:
         outcome = error.code
+        qa.failed(error)
+        raise
+    except Exception as error:
+        qa.failed(error)
         raise
     finally:
         logger.info("answer request=%s user=%s mode=%s outcome=%s llm_called=%s prompt_tokens=%d completion_tokens=%d latency_ms=%d",
@@ -187,16 +198,19 @@ def post_message(db: Session, pipeline: Pipeline, *, user: AuthUser, session_id:
 
 
 def _run(db: Session, pipeline: Pipeline, user: AuthUser, session_id: UUID, content: str, mode: str,
-         key: str | None, request_id: str, request_hash: str):
+         key: str | None, request_id: str, request_hash: str, qa: QuestionAudit):
     settings = pipeline.settings
     # ---- phase A: a short read-only transaction
     session = sessions_repo.get_session(db, user.id, session_id)
     if session is None:
+        AuditCtx(pipeline.audit, request_id, "post_message").foreign_session(db, user.id, session_id)
         raise not_found("Chat session was not found.")  # also for another user's session
+    qa.submitted(len(content), mode, bool(key))  # its own transaction: a long run shows as running
     if key:
         existing = repo.find_by_key(db, session_id, key)
         if existing:
             reply = _replay(db, existing, request_hash, request_id)
+            qa.replayed()
             return reply, True, "replayed", False, (0, 0)
     profile = patients_repo.get_profile(db, session["patient_id"])
     history = repo.recent_turns(db, session_id, prompts.HISTORY_TURNS * 2)
@@ -213,17 +227,20 @@ def _run(db: Session, pipeline: Pipeline, user: AuthUser, session_id: UUID, cont
     deps = GraphDeps(
         settings=settings, llm=pipeline.llm, embedder_provider=pipeline.embedder_provider, engine=engine,
         deadline=time.monotonic() + total, request_id=request_id,
-        node_timeouts={"execute_retrieval": settings.graph_retrieval_timeout_seconds, "generate_answer": total})
+        node_timeouts={"execute_retrieval": settings.graph_retrieval_timeout_seconds, "generate_answer": total},
+        collected=qa.collected)
     state = {"user_id": str(user.id), "session_id": str(session_id), "patient_id": session["patient_id"], "mode": mode,
              "question": content, "request_id": request_id, "patient_profile": profile, "history": history}
     final = pipeline.graph.invoke(state, config=run_config(deps))
     result = final["result"] if isinstance(final, dict) else final.result
+    qa.result = result  # if only the storing step fails below, the audit log still has the whole run
 
     # ---- phase C: one short transaction
     try:
         if key:
             existing = repo.find_by_key(db, session_id, key)  # another process may have finished meanwhile
             if existing:
+                qa.replayed()
                 return _replay(db, existing, request_hash, request_id), True, "replayed", result["llm_called"], result["tokens"]
         message = repo.insert_turn(
             db, session_id=session_id, mode=mode, question=content, answer_content=result["content"], response=result["stored"],
@@ -236,5 +253,7 @@ def _run(db: Session, pipeline: Pipeline, user: AuthUser, session_id: UUID, cont
         existing = repo.find_by_key(db, session_id, key) if key else None
         if existing is None:
             raise
+        qa.replayed()
         return _replay(db, existing, request_hash, request_id), True, "replayed", result["llm_called"], result["tokens"]
+    qa.answered(result, str(reply["message_id"]))
     return reply, False, result["outcome"], result["llm_called"], result["tokens"]

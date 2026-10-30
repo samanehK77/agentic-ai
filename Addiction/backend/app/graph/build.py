@@ -1,5 +1,6 @@
 """Builds and compiles the answer graph. Compiled ONCE at startup; the compiled graph is stateless, so concurrent runs
 share it. No checkpointer: nothing about a run is kept by LangGraph."""
+import time
 from collections.abc import Callable
 
 from langchain_core.runnables import RunnableConfig
@@ -9,7 +10,9 @@ from app.graph import nodes, routing
 from app.graph.classifier import Classifier, RuleClassifier
 from app.graph.deps import GraphDeps
 from app.graph.guard import run_guarded
+from app.errors import ApiError
 from app.graph.state import GraphState
+from app.graph.trace import TraceEvent, now_iso
 
 RECURSION_LIMIT = 25  # the longest legitimate path has 12 steps (10 nodes plus one retrieval retry)
 
@@ -17,7 +20,17 @@ RECURSION_LIMIT = 25  # the longest legitimate path has 12 steps (10 nodes plus 
 def _guarded(name: str, fn: Callable[[GraphState, GraphDeps], dict]):
     def run(state: GraphState, config: RunnableConfig) -> dict:
         deps: GraphDeps = config["configurable"]["deps"]
-        return run_guarded(name, deps, lambda: fn(state, deps))
+        started_at, t0 = now_iso(), time.perf_counter()
+        try:
+            update = run_guarded(name, deps, lambda: fn(state, deps))
+        except BaseException as error:
+            code = error.code if isinstance(error, ApiError) else type(error).__name__
+            deps.collected.append(TraceEvent(
+                node=name, status="error", started_at=started_at, duration_ms=round((time.perf_counter() - t0) * 1000),
+                reason_code=code, reason="The step failed.", error_code=code, correlation_id=deps.request_id).model_dump())
+            raise
+        deps.collected.extend(update.get("execution_trace", []))
+        return update
 
     run.__name__ = name
     return run

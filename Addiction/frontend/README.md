@@ -107,3 +107,6 @@ Run the frontend without browser caching: `python serve.py` (instead of `python 
 
 The Activity timeline renders the answer's `execution_trace` (one item per workflow node, skipped nodes dimmed with the reason; answers stored before Batch 08 fall back to the short trace). While an answer is prepared the page counts the seconds (a local model can take minutes); the browser waits up to 540 s (`ANSWER_TIMEOUT_MS` in `js/config.js`); a busy model or rate limit shows the API's `Retry-After`. All text is set with `textContent`. See `docs/ORCHESTRATION.md` and `docs/FRONTEND_INTEGRATION_PLAN.md`.
 
+## Audit timeline and admin page (Batch 09)
+
+Signed in, the Activity timeline shows the real audit log of the conversation (`GET /api/audit/timeline`): per question the ordered steps with their time, retrieval details, model request, citation badges, the model configuration and, for failed runs, the error code with a plain-language diagnosis. Refresh button; a slow question shows as *running*. A Helpful / Not helpful row sits under each answer (`POST .../feedback`). `admin.html` (admins only) shows the audit summary and event list. `?source=mock` and `?state=` still work. See `docs/OBSERVABILITY.md`.

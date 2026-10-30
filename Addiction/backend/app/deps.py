@@ -8,8 +8,9 @@ from fastapi.security import APIKeyCookie
 from sqlalchemy.orm import Session
 
 from app import auth_service, security
+from app.audit.context import AuditCtx
 from app.auth_service import SESSION_COOKIE, AuthUser
-from app.errors import csrf_failed, forbidden, unauthorized
+from app.errors import csrf_failed, forbidden, request_id_of, unauthorized
 
 PATIENT_ID_PATTERN = r"^P-\d{3}$"
 
@@ -40,6 +41,15 @@ def pagination(
 
 DbSession = Annotated[Session, Depends(get_db)]
 PageParams = Annotated[Pagination, Depends(pagination)]
+
+
+def audit_ctx(request: Request) -> AuditCtx:
+    """What services need to record audit events for this request (the route's function name, never its path or query)."""
+    route = request.scope.get("route")
+    return AuditCtx(getattr(request.app.state, "audit", None), request_id_of(request), getattr(route, "name", None) or "unknown")
+
+
+Audit = Annotated[AuditCtx, Depends(audit_ctx)]
 
 
 # ---------------------------------------------------------------- authentication
@@ -76,8 +86,9 @@ CurrentUser = Annotated[AuthUser, Depends(current_user)]
 def require_role(*roles: str):
     """Dependency factory for role-restricted routes: `Depends(require_role("admin"))`."""
 
-    def check(user: CurrentUser) -> AuthUser:
+    def check(user: CurrentUser, ctx: Audit) -> AuthUser:
         if user.role not in roles:
+            ctx.denied("role_required", user_id=user.id)
             raise forbidden()
         return user
 

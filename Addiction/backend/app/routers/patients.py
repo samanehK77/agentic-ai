@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app import services
-from app.deps import DbSession, PageParams, PatientIdPath
+from app.deps import Audit, CurrentUser, DbSession, PageParams, PatientIdPath
 from app.schemas.common import ERROR_404, ERROR_422, Page
 from app.schemas.patients import Category, HistoryItem, PatientProfile, PatientSummary
 
@@ -34,8 +34,8 @@ def list_patients(
                 "and progress observations. `is_synthetic` is always true.",
     responses={**ERROR_404, **ERROR_422},
 )
-def get_patient(patient_id: PatientIdPath, db: DbSession) -> PatientProfile:
-    return PatientProfile(**services.get_patient_profile(db, patient_id))
+def get_patient(patient_id: PatientIdPath, db: DbSession, user: CurrentUser, ctx: Audit) -> PatientProfile:
+    return PatientProfile(**services.get_patient_profile(db, patient_id, user, ctx))
 
 
 @router.get(

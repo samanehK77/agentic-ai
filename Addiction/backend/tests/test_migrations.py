@@ -10,7 +10,7 @@ TABLES = {
     "patients", "patient_history_events", "substance_or_behavior_use",
     "triggers_and_risk_factors", "previous_interventions", "progress_observations",
     "papers", "chat_sessions", "chat_messages", "users", "auth_sessions",
-    "paper_chunks", "ingestion_runs",
+    "paper_chunks", "ingestion_runs", "audit_events",
 }
 
 
@@ -35,7 +35,7 @@ def test_migrations_apply_from_empty_and_downgrade_cleanly():
 
 def test_no_forbidden_tables(engine):
     names = set(inspect(engine).get_table_names())
-    for forbidden in ("sessions", "documents", "logs", "audit_events"):
+    for forbidden in ("sessions", "documents", "logs"):  # audit_events is deliberate since Batch 09
         assert forbidden not in names
 
 

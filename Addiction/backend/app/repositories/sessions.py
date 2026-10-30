@@ -35,6 +35,11 @@ def get_session(db: Session, owner_id: UUID, session_id: UUID) -> dict | None:
     return dict(row) if row else None
 
 
+def session_exists(db: Session, session_id: UUID) -> bool:
+    """Whether the session exists at all, whoever owns it. Used only to tell a refusal from an unknown id in the audit log."""
+    return db.scalar(select(ChatSession.session_id).where(ChatSession.session_id == session_id)) is not None
+
+
 def create_session(db: Session, owner_id: UUID, patient_id: str, title: str) -> dict:
     session = ChatSession(patient_id=patient_id, title=title, owner_id=owner_id)
     db.add(session)

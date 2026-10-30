@@ -213,3 +213,35 @@ export async function askQuestion({ patientId, mode, text }) {
     question: text,
   };
 }
+
+// ---------------------------------------------------------------- Batch 09: audit timeline, feedback, administrator views
+
+// The signed-in user's audit events for one of their own chat sessions, grouped by question (newest first).
+export async function getAuditTimeline(sessionId) {
+  await gate(0);
+  return request(`/api/audit/timeline?session_id=${encodeURIComponent(sessionId)}&limit=50`);
+}
+
+// One rating per answer; the server keeps the first one (already_recorded: true on a repeat).
+export function postFeedback(sessionId, messageId, { rating, reason }) {
+  return request(`/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/feedback`, {
+    method: "POST",
+    body: reason ? { rating, reason } : { rating },
+  });
+}
+
+function query(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value !== "" && value != null) search.set(key, value);
+  const text = search.toString();
+  return text ? `?${text}` : "";
+}
+
+// Administrators only (403 for students). Metadata and statistics, never content.
+export function getAdminAuditSummary(params = {}) {
+  return request(`/api/admin/audit/summary${query(params)}`);
+}
+
+export function getAdminAuditEvents(params = {}) {
+  return request(`/api/admin/audit/events${query({ limit: 25, ...params })}`);
+}

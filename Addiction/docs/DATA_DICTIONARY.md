@@ -294,3 +294,28 @@ Execution trace of the answer workflow on `chat_messages` (migration 0007, Batch
 | `graph_version` | text, nullable | The workflow version that produced the answer (`graph-v1`). Assistant messages only. |
 
 Constraints: `trace` and `graph_version` exist only on `role = 'assistant'`; `trace` must be a JSON array; `graph_version` must not be blank. Messages from before Batch 08 keep both null. The response JSON in `response` also stores the `classification`, `retrieval_decision`, `evidence_assessment` and `citation_validation` of the run.
+
+---
+
+Audit log (migration 0008, Batch 09; see `docs/OBSERVABILITY.md`).
+
+## audit_events
+
+Append-only: a trigger rejects every DELETE and every UPDATE except the `user_id` value -> NULL that `ON DELETE SET NULL` makes when a user is deleted. `chat_messages.trace` (Batch 08) stays the per-message snapshot of the node trace; this table is the cross-run record, including failed runs.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `event_id` | uuid, PK | `gen_random_uuid()` |
+| `occurred_at` | timestamptz, not null | when the event happened |
+| `correlation_id` | uuid, not null, indexed | server-generated, one per question or action (never the client's request id) |
+| `request_id` | text, nullable | the sanitized request id (`^[A-Za-z0-9-]{1,64}$`) |
+| `user_id` | uuid, nullable | `ON DELETE SET NULL`; null for failed sign-ins and after user deletion |
+| `session_id` | uuid, nullable | chat session; no foreign key, no cascading delete |
+| `event_type` | text, not null | CHECK: sign_in_succeeded, sign_in_failed, sign_out, patient_viewed, session_created, question_submitted, node_executed, retrieval_executed, llm_request, citation_validated, answer_returned, pipeline_error, access_denied, feedback_submitted |
+| `outcome` | text, not null | CHECK: ok, error, denied, skipped |
+| `error_code` | text, nullable | standard API error code or reason code |
+| `latency_ms` | integer, nullable | >= 0 |
+| `seq` | smallint, not null, default 0 | order inside one batch of events |
+| `metadata` | jsonb, not null, default `{}` | an object of at most 4096 bytes, only the keys allowed for the event type; never question, patient or chunk text, prompts, answers, tokens, keys, e-mail addresses, IP addresses or user agents |
+
+Indexes: `(user_id, occurred_at)`, `(session_id, occurred_at)`, `(correlation_id)`, `(event_type, occurred_at)`. Retention: documented only, no automatic purge.

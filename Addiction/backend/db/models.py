@@ -16,6 +16,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 VOCAB = {
+    # Batch 09
+    "audit_event_type": (
+        "sign_in_succeeded", "sign_in_failed", "sign_out", "patient_viewed", "session_created", "question_submitted",
+        "node_executed", "retrieval_executed", "llm_request", "citation_validated", "answer_returned", "pipeline_error",
+        "access_denied", "feedback_submitted",
+    ),
+    "audit_outcome": ("ok", "error", "denied", "skipped"),
     "gender": ("woman", "man", "non_binary", "other", "unknown"),
     "category": ("alcohol", "cannabis", "opioids", "stimulants", "behavioral"),
     "motivation": ("none_expressed", "ambivalent", "contemplating", "preparing", "engaged", "unknown"),
@@ -448,3 +455,36 @@ class IngestionRun(Base):
     results: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
     __table_args__ = (CheckConstraint(_in("status", "run_status"), name="status_values"),)
+
+
+# ---------------------------------------------------------------- Batch 09 table
+# Append-only audit log (a trigger in migration 0008 rejects DELETE and UPDATE). `metadata` holds only the keys allowed
+# for the event type (app/audit/events.py): never question, patient or chunk text, prompts, answers, tokens or e-mail.
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    event_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    correlation_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(Text)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    session_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    event_type: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    seq: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default=text("0"))
+    meta: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+    __table_args__ = (
+        CheckConstraint(_in("event_type", "audit_event_type"), name="event_type_values"),
+        CheckConstraint(_in("outcome", "audit_outcome"), name="outcome_values"),
+        CheckConstraint("latency_ms IS NULL OR latency_ms >= 0", name="latency_not_negative"),
+        CheckConstraint("jsonb_typeof(metadata) = 'object' AND octet_length(metadata::text) <= 4096", name="metadata_small_object"),
+        CheckConstraint("request_id IS NULL OR request_id ~ '^[A-Za-z0-9-]{1,64}$'", name="request_id_format"),
+        Index("ix_audit_events_user_occurred", "user_id", "occurred_at"),
+        Index("ix_audit_events_session_occurred", "session_id", "occurred_at"),
+        Index("ix_audit_events_correlation_id", "correlation_id"),
+        Index("ix_audit_events_type_occurred", "event_type", "occurred_at"),
+    )

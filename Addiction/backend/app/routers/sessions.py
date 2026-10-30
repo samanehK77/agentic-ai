@@ -5,10 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request, Response
 
 from app import services
-from app.deps import CurrentUser, DbSession, PageParams
+from app.deps import Audit, CurrentUser, DbSession, PageParams
 from app.answers import service as answers_service
 from app.errors import request_id_of
 from app.schemas.answers import AnswerOut, MessageCreate
+from app.schemas.audit import FeedbackCreate, FeedbackOut
 from app.schemas.common import ERROR_403, ERROR_404, ERROR_422, Page
 from app.schemas.sessions import MessageOut, SessionCreate, SessionOut
 from app.schemas.trace import TraceResponse
@@ -49,8 +50,9 @@ def list_sessions(
     description="Starts a conversation about one patient. The new session's URL is returned in the Location header.",
     responses={**ERROR_404, **ERROR_422},
 )
-def create_session(body: SessionCreate, request: Request, response: Response, user: CurrentUser, db: DbSession) -> SessionOut:
-    session = services.create_session(db, user, body.patient_id, body.title)
+def create_session(body: SessionCreate, request: Request, response: Response, user: CurrentUser, db: DbSession,
+                   ctx: Audit) -> SessionOut:
+    session = services.create_session(db, user, body.patient_id, body.title, ctx)
     response.headers["Location"] = str(request.url_for("get_session", session_id=session["session_id"]))
     return SessionOut(**session)
 
@@ -61,8 +63,8 @@ def create_session(body: SessionCreate, request: Request, response: Response, us
     summary="Get one chat session",
     responses={**ERROR_404, **ERROR_422},
 )
-def get_session(session_id: UUID, user: CurrentUser, db: DbSession) -> SessionOut:
-    return SessionOut(**services.get_session(db, user, session_id))
+def get_session(session_id: UUID, user: CurrentUser, db: DbSession, ctx: Audit) -> SessionOut:
+    return SessionOut(**services.get_session(db, user, session_id, ctx))
 
 
 @router.get(
@@ -72,8 +74,8 @@ def get_session(session_id: UUID, user: CurrentUser, db: DbSession) -> SessionOu
     description="Oldest first. Another user's session returns 404. Assistant messages carry `answer`: the structured answer with its citations and the chunks shown to the model, joined from the current chunk table (`stale` if a chunk changed or is gone).",
     responses={**ERROR_404, **ERROR_422},
 )
-def list_messages(session_id: UUID, user: CurrentUser, db: DbSession, page: PageParams) -> Page[MessageOut]:
-    items, total = services.list_messages(db, user, session_id, page.limit, page.offset)
+def list_messages(session_id: UUID, user: CurrentUser, db: DbSession, page: PageParams, ctx: Audit) -> Page[MessageOut]:
+    items, total = services.list_messages(db, user, session_id, page.limit, page.offset, ctx)
     return Page[MessageOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
 
@@ -116,5 +118,27 @@ def post_message(
         "message all return 404."),
     responses={**ERROR_404, **ERROR_422},
 )
-def get_message_trace(session_id: UUID, message_id: UUID, user: CurrentUser, db: DbSession) -> TraceResponse:
-    return TraceResponse(**answers_service.get_execution_trace(db, user, session_id, message_id))
+def get_message_trace(session_id: UUID, message_id: UUID, user: CurrentUser, db: DbSession, ctx: Audit) -> TraceResponse:
+    return TraceResponse(**answers_service.get_execution_trace(db, user, session_id, message_id, ctx))
+
+
+@router.post(
+    "/{session_id}/messages/{message_id}/feedback",
+    response_model=FeedbackOut,
+    status_code=201,
+    summary="Rate an answer",
+    description=(
+        "One rating (`helpful` or `not_helpful`) and optionally one fixed reason code per answer; there is no free text. "
+        "Owner only (another user's session, an unknown message and a question message return 404). Requires the X-CSRF-Token "
+        "header. Idempotent: the first rating of a message stands; sending again returns it with `already_recorded: true` "
+        "and status 200."),
+    responses={200: {"model": FeedbackOut, "description": "Feedback for this message was already recorded."},
+               **ERROR_403, **ERROR_404, **ERROR_422},
+)
+def post_feedback(session_id: UUID, message_id: UUID, body: FeedbackCreate, request: Request, response: Response,
+                  user: CurrentUser, db: DbSession, ctx: Audit) -> FeedbackOut:
+    out, created = services.submit_feedback(
+        db, request.app.state.audit, user, session_id, message_id, body.rating, body.reason, ctx)
+    if not created:
+        response.status_code = 200
+    return FeedbackOut(**out)

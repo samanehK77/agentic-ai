@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from app.config import Settings, StartupError, load_settings
 from app.errors import install_error_handlers
 from app.answers.service import Pipeline
+from app.audit import AuditService
 from app.deps import current_user, require_role
 from app.llm.base import BaseLLMClient
 from app.llm.concurrency import ConcurrencyLimitedClient
@@ -20,7 +21,7 @@ from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMi
 from app.schemas.common import ERROR_401
 from app.retrieval.embedder import Embedder, EmbedderProvider
 from app.retrieval.ratelimit import SlidingWindowLimiter
-from app.routers import admin_papers, auth, health, papers, patients, retrieval, sessions
+from app.routers import admin_audit, admin_papers, audit, auth, health, papers, patients, retrieval, sessions
 from db.config import get_engine
 
 DESCRIPTION = """
@@ -41,6 +42,7 @@ TAGS = [
     {"name": "admin", "description": "Administrator-only ingestion results, including full chunk text."},
     {"name": "sessions", "description": "Chat sessions and their messages."},
     {"name": "retrieval", "description": "Semantic search over the embedded research chunks."},
+    {"name": "audit", "description": "Your activity timeline (metadata only) and answer feedback."},
 ]
 
 
@@ -73,8 +75,9 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
     # A local model serves one request at a time: model calls queue behind a small semaphore (LLM_MAX_CONCURRENCY).
     app.state.llm_client = ConcurrencyLimitedClient(
         llm_client or DeepSeekClient(settings.llm), settings.llm.max_concurrency, settings.llm.queue_wait_seconds)
+    app.state.audit = AuditService(app.state.engine)  # the append-only audit log: its own transactions, fail-open
     app.state.answer_pipeline = Pipeline(settings, app.state.llm_client, app.state.embedder_provider,
-                                         SlidingWindowLimiter(settings.answer_rate_limit_per_minute))
+                                         SlidingWindowLimiter(settings.answer_rate_limit_per_minute), audit=app.state.audit)
     if settings.retrieval_warmup and embedder is None:
         _warm_up(app.state.embedder_provider)
     app.state.used_states = {}  # OAuth states already consumed (state -> expiry), so a signed cookie works once
@@ -94,10 +97,11 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
 
     app.include_router(health.router)
     app.include_router(auth.router)
-    for router in (patients.router, papers.router, sessions.router, retrieval.router):
+    for router in (patients.router, papers.router, sessions.router, retrieval.router, audit.router):
         app.include_router(router, dependencies=[Depends(current_user)], responses=ERROR_401)  # 401 unless signed in
     # Administrator-only (401 when signed out, 403 for students). Read-only: nothing here starts an ingestion.
-    app.include_router(admin_papers.router, dependencies=[Depends(require_role("admin"))], responses=ERROR_401)
+    for router in (admin_papers.router, admin_audit.router):
+        app.include_router(router, dependencies=[Depends(require_role("admin"))], responses=ERROR_401)
     return app
 
 

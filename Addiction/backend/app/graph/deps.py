@@ -21,6 +21,9 @@ class GraphDeps:
     deadline: float  # time.monotonic() value at which the whole workflow must be finished
     request_id: str | None = None
     node_timeouts: dict[str, float] = field(default_factory=dict)
+    # Trace events of the nodes as they finish (plus an error event for a node that failed), so a failed run still has
+    # its partial trace for the audit log. The same objects the stored execution_trace is made from.
+    collected: list = field(default_factory=list)
 
     def remaining(self) -> float:
         return self.deadline - time.monotonic()

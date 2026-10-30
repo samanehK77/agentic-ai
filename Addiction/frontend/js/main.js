@@ -2,7 +2,7 @@
 import * as api from "./api.js";
 import { state, setState, subscribe, addMessage } from "./state.js";
 import { MODES } from "../data/mock-data.js";
-import { API_MODE, evidenceFromAnswer, messageFromApi, traceToEvents } from "./adapters.js";
+import { API_MODE, evidenceFromAnswer, messageFromApi } from "./adapters.js";
 import { renderAuth } from "./render/auth.js";
 import { renderPatients } from "./render/patients.js";
 import { renderPatientDetail } from "./render/patientDetail.js";
@@ -61,9 +61,43 @@ function showSignedOut() {
     sending: false,
     messages: {},
     timeline: [],
+    audit: EMPTY_AUDIT,
     evidence: { status: "idle", chunks: [], error: null },
     activeChunk: { status: "idle", data: null, error: null },
   });
+}
+
+const EMPTY_AUDIT = { status: "idle", sessionId: null, groups: [], total: 0, error: null };
+
+// Friendly text for a failed activity request (401 is handled by the caller).
+function auditErrorText(err) {
+  if (err instanceof api.ApiError) {
+    if (err.status === 404) return "This conversation has no activity record, or it does not belong to you.";
+    if (err.status === 429) return `Too many requests. Try again in ${err.retryAfter || "a few"} seconds.`;
+    if (err.status === 503) return "The activity log is not available right now (the database is not reachable). Try again in a moment.";
+  }
+  return errorText(err);
+}
+
+// Loads the real audit log of one conversation into the timeline. `quiet` keeps the old list on screen while refreshing.
+async function loadAudit(sessionId, { quiet = false } = {}) {
+  if (api.isMockSource() || !sessionId) return;
+  const mine = epoch;
+  const keep = state.audit.sessionId === sessionId ? state.audit : EMPTY_AUDIT;
+  if (!quiet || keep.groups.length === 0) setState({ audit: { ...keep, status: "loading", sessionId } });
+  try {
+    const page = await api.getAuditTimeline(sessionId);
+    if (mine !== epoch || state.audit.sessionId !== sessionId) return;
+    setState({ audit: { status: "ready", sessionId, groups: page.items, total: page.total, error: null } });
+  } catch (err) {
+    if (mine !== epoch) return;
+    if (err instanceof api.AuthError) return showSignedOut();
+    setState({ audit: { ...keep, status: "error", sessionId, error: auditErrorText(err) } });
+  }
+}
+
+function currentSessionId() {
+  return state.selectedId ? state.sessions[state.selectedId]?.id || null : null;
 }
 
 async function loadPatients() {
@@ -73,6 +107,7 @@ async function loadPatients() {
     patient: { status: "idle", data: null, error: null },
     selectedId: null,
     sending: false,
+    audit: EMPTY_AUDIT,
     activeChunk: { status: "idle", data: null, error: null },
   });
   try {
@@ -89,7 +124,9 @@ async function loadPatients() {
 
 async function selectPatient(id) {
   const mine = epoch;
-  setState({ selectedId: id, patient: { status: "loading", data: null, error: null } });
+  const known = state.sessions[id]?.id || null;
+  setState({ selectedId: id, patient: { status: "loading", data: null, error: null }, audit: known ? { ...EMPTY_AUDIT, sessionId: known } : EMPTY_AUDIT });
+  if (known) loadAudit(known);
   try {
     const data = await api.getPatient(id);
     if (mine !== epoch || state.selectedId !== id) return;
@@ -120,6 +157,7 @@ async function resumeConversation(patientId) {
       patch.evidence = { status: "ready", chunks: evidenceFromAnswer(lastAnswer), error: null };
     }
     setState(patch);
+    loadAudit(session.session_id);
   } catch (err) {
     if (err instanceof api.AuthError) showSignedOut();
   }
@@ -146,13 +184,24 @@ async function sendLive(patientId, mode, text, mine) {
     const session = await api.createSession(patientId);
     entry = { id: session.session_id };
     if (mine !== epoch) return;
-    setState({ sessions: { ...state.sessions, [patientId]: entry } });
+    setState({ sessions: { ...state.sessions, [patientId]: entry }, audit: { ...EMPTY_AUDIT, sessionId: entry.id } });
   }
-  const answer = await api.postMessage(entry.id, { content: text, mode: API_MODE[mode], key: api.newIdempotencyKey() });
+  // While a (slow) answer is prepared the audit log shows the question as running; the steps appear when it finishes.
+  const poll = setInterval(() => loadAudit(entry.id, { quiet: true }), 5000);
+  let answer;
+  try {
+    answer = await api.postMessage(entry.id, { content: text, mode: API_MODE[mode], key: api.newIdempotencyKey() });
+  } catch (err) {
+    loadAudit(entry.id, { quiet: true }); // a failed run is in the audit log too
+    throw err;
+  } finally {
+    clearInterval(poll);
+  }
   if (mine !== epoch) return;
   addMessage(patientId, { role: "assistant", text: answer.content, mode, kind: "answer", answer });
+  loadAudit(entry.id, { quiet: true });
   const chunks = evidenceFromAnswer(answer);
-  const patch = { sending: false, timeline: [...state.timeline, ...traceToEvents(answer, patientId)] };
+  const patch = { sending: false };
   if (mode === "gk") {
     patch.evidence = { status: "idle", chunks: [], error: null };
   } else {
@@ -197,7 +246,13 @@ function startNewConversation() {
     evidence: { status: "idle", chunks: [], error: null },
     activeChunk: { status: "idle", data: null, error: null },
     timeline: [],
+    audit: EMPTY_AUDIT,
   });
+}
+
+// Rates an answer (one rating per answer; the server keeps the first). Returns the API's reply for the feedback row.
+function sendFeedback(answer, rating, reason) {
+  return api.postFeedback(answer.session_id, answer.message_id, { rating, reason });
 }
 
 // Click or keyboard activation of a citation badge: show that answer's evidence and highlight the cited chunk with its quote.
@@ -237,7 +292,7 @@ function setDemo(value) {
   if (value === "ready") url.searchParams.delete("state");
   else url.searchParams.set("state", value);
   history.replaceState(null, "", url);
-  setState({ demo: api.getDemoState(), messages: {}, timeline: [], evidence: { status: "idle", chunks: [], error: null } });
+  setState({ demo: api.getDemoState(), messages: {}, timeline: [], audit: EMPTY_AUDIT, evidence: { status: "idle", chunks: [], error: null } });
   loadPatients();
 }
 
@@ -247,6 +302,8 @@ const actions = {
   reload: () => setDemo(state.demo),
   retryLast: () => state.lastQuestion && sendQuestion(state.lastQuestion),
   focusCitation,
+  sendFeedback,
+  refreshAudit: () => loadAudit(currentSessionId()),
 };
 
 function render(s) {
@@ -255,8 +312,9 @@ function render(s) {
   renderPatientDetail(s, actions);
   renderChat(s, actions);
   renderEvidence(s, actions);
-  renderTimeline(s);
+  renderTimeline(s, actions);
   renderMode(s);
+  document.getElementById("admin-link").hidden = !(s.auth.status === "signed-in" && s.auth.user?.role === "admin");
   document.getElementById("demo-state").value = s.demo;
 }
 
@@ -277,6 +335,7 @@ function wireControls() {
   document.getElementById("demo-reset").addEventListener("click", () => setDemo("ready"));
   document.getElementById("signin-button").href = api.loginUrl;
   document.getElementById("new-conversation").addEventListener("click", startNewConversation);
+  document.getElementById("timeline-refresh").addEventListener("click", () => actions.refreshAudit());
   document.getElementById("signout-button").addEventListener("click", async () => {
     try {
       await api.signOut();

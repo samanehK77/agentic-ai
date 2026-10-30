@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindEvidence Lab · Admin</title>
+  <meta name="description" content="Administrator view of the audit log: metadata and statistics only.">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/admin.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#admin-main">Skip to main content</a>
+  <div class="banner" role="note">Synthetic data · Educational use only · Not clinical advice</div>
+
+  <header class="app-header">
+    <div class="brand">
+      <h1>Audit overview</h1>
+      <p>Administrators only. Metadata and statistics: no question, patient or document text is stored.</p>
+    </div>
+    <div class="auth-area"><a class="btn" href="index.html">Back to the workspace</a></div>
+  </header>
+
+  <main id="admin-main" class="admin-page">
+    <div id="admin-status" role="status"></div>
+
+    <section id="admin-summary-section" aria-labelledby="h-summary" hidden>
+      <div class="panel-head">
+        <h2 id="h-summary">Summary</h2>
+        <button type="button" id="admin-refresh" class="btn btn-small">Refresh</button>
+      </div>
+      <div class="admin-filters">
+        <label>From (date)<input type="date" id="sum-from"></label>
+        <label>To (date, inclusive)<input type="date" id="sum-to"></label>
+        <button type="button" id="sum-apply" class="btn btn-small">Apply</button>
+      </div>
+      <div id="admin-cards" class="admin-cards"></div>
+      <h3>Events per day</h3>
+      <div id="admin-days" class="admin-table-wrap"></div>
+    </section>
+
+    <section id="admin-events-section" aria-labelledby="h-events" hidden>
+      <h2 id="h-events">Events</h2>
+      <form id="event-filters" class="admin-filters">
+        <label>Event type<select id="f-type"><option value="">any</option></select></label>
+        <label>Outcome
+          <select id="f-outcome"><option value="">any</option><option>ok</option><option>error</option><option>denied</option><option>skipped</option></select>
+        </label>
+        <label>User id<input id="f-user" size="36" placeholder="uuid" autocomplete="off"></label>
+        <label>From (date)<input type="date" id="f-from"></label>
+        <label>To (date, inclusive)<input type="date" id="f-to"></label>
+        <button type="submit" class="btn btn-small">Filter</button>
+      </form>
+      <div id="admin-events" class="admin-table-wrap"></div>
+      <div class="admin-pager">
+        <button type="button" id="page-prev" class="btn btn-small">Previous</button>
+        <span id="page-info"></span>
+        <button type="button" id="page-next" class="btn btn-small">Next</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

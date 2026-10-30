@@ -68,8 +68,44 @@ function emptyHint(ready) {
     : "Select a patient to start a conversation." });
 }
 
+// Optional feedback on one answer: a rating and one fixed reason (no free text). The server keeps the first rating.
+const FEEDBACK_REASONS = [
+  ["", "Reason (optional)"], ["accurate", "Accurate"], ["clear", "Clear"], ["good_sources", "Good sources"],
+  ["inaccurate", "Inaccurate"], ["unclear", "Unclear"], ["missing_sources", "Missing sources"], ["unsafe", "Unsafe"], ["other", "Other"],
+];
+
+function feedbackRow(answer, actions) {
+  const row = el("div", { class: "feedback-row" });
+  const status = el("span", { class: "feedback-status", role: "status" });
+  const reason = el("select", { "aria-label": "Reason for your rating (optional)" },
+    FEEDBACK_REASONS.map(([value, label]) => el("option", { value, text: label })));
+  const buttons = [];
+  const send = async (rating) => {
+    buttons.forEach((b) => { b.disabled = true; });
+    status.textContent = "Saving…";
+    try {
+      const saved = await actions.sendFeedback(answer, rating, reason.value || null);
+      row.replaceChildren(el("span", { class: "feedback-status", role: "status",
+        text: saved.already_recorded ? "Your earlier rating was kept. Thank you." : "Thank you, your feedback was recorded." }));
+    } catch (err) {
+      buttons.forEach((b) => { b.disabled = false; });
+      status.textContent = err?.status === 404 ? "This answer can no longer be rated." : "Feedback could not be saved. Try again.";
+    }
+  };
+  for (const [rating, label] of [["helpful", "Helpful"], ["not_helpful", "Not helpful"]]) {
+    const button = el("button", { type: "button", class: "btn btn-small", onclick: () => send(rating), text: label });
+    buttons.push(button);
+  }
+  row.append(el("span", { class: "feedback-label", text: "Was this answer useful?" }), ...buttons, reason, status);
+  return row;
+}
+
 function renderMessage(message, actions) {
-  if (message.kind === "answer" && message.answer) return renderAnswer(message, actions);
+  if (message.kind === "answer" && message.answer) {
+    const node = renderAnswer(message, actions);
+    if (message.answer.message_id && message.answer.session_id) node.append(feedbackRow(message.answer, actions));
+    return node;
+  }
   if (message.role === "user") {
     return el("div", { class: "message message-user" },
       el("p", { class: "message-who", text: "You" }),
