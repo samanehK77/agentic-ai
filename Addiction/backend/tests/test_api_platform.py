@@ -112,6 +112,7 @@ EXPECTED_OPERATIONS = {
     ("get", "/api/audit/timeline"),
     ("get", "/api/admin/audit/events"),
     ("get", "/api/admin/audit/summary"),
+    ("get", "/api/admin/diagnostics"),
 }
 
 

@@ -9,7 +9,8 @@ DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
 
 
-LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+# host.docker.internal is how a container reaches a model server (Ollama) running on the Docker host: still this computer.
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
 
 
 class LLMConfigError(ValueError):

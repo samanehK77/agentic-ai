@@ -14,6 +14,7 @@ from app.errors import install_error_handlers
 from app.answers.service import Pipeline
 from app.audit import AuditService
 from app.deps import current_user, require_role
+from app.diagnostics.checks import startup_summary
 from app.llm.base import BaseLLMClient
 from app.llm.concurrency import ConcurrencyLimitedClient
 from app.llm.deepseek import DeepSeekClient
@@ -21,7 +22,7 @@ from app.middleware import REQUEST_ID_HEADER, NoStoreAuthMiddleware, RequestIdMi
 from app.schemas.common import ERROR_401
 from app.retrieval.embedder import Embedder, EmbedderProvider
 from app.retrieval.ratelimit import SlidingWindowLimiter
-from app.routers import admin_audit, admin_papers, audit, auth, health, papers, patients, retrieval, sessions
+from app.routers import admin_audit, admin_diagnostics, admin_papers, audit, auth, health, papers, patients, retrieval, sessions
 from db.config import get_engine
 
 DESCRIPTION = """
@@ -66,6 +67,16 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
     )
     app.state.engine = engine or get_engine()
     app.state.settings = settings
+    line, problems = startup_summary(settings)
+    startup_log = logging.getLogger("mindevidence.startup")
+    if not startup_log.handlers and not logging.getLogger().handlers:  # under uvicorn nothing shows INFO lines by default
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s [%(name)s] %(message)s"))
+        startup_log.addHandler(handler)
+        startup_log.setLevel(logging.INFO)
+    startup_log.info(line)
+    for problem in problems:
+        startup_log.warning("configuration: %s", problem)
     # The embedding model loads lazily on the first search (torch is optional). Tests pass a fake embedder.
     app.state.embedder_provider = EmbedderProvider.fixed(embedder) if embedder else EmbedderProvider()
     app.state.rate_limiter = SlidingWindowLimiter(settings.retrieval_rate_limit_per_minute)
@@ -100,7 +111,7 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None, e
     for router in (patients.router, papers.router, sessions.router, retrieval.router, audit.router):
         app.include_router(router, dependencies=[Depends(current_user)], responses=ERROR_401)  # 401 unless signed in
     # Administrator-only (401 when signed out, 403 for students). Read-only: nothing here starts an ingestion.
-    for router in (admin_papers.router, admin_audit.router):
+    for router in (admin_papers.router, admin_audit.router, admin_diagnostics.router):
         app.include_router(router, dependencies=[Depends(require_role("admin"))], responses=ERROR_401)
     return app
 
